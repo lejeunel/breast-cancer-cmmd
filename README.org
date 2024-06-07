@@ -12,6 +12,17 @@ poetry install
 This will look for an existing and activated virtual environment, and create one
 in current directory if it does not exist.
 
-* Usage
+
+
+* Usage & Configuration
+
+We provide a ~Dockerfile~ along with a ~Makefile~ to facilitate reproducibility and
+abstract-away some pipeline steps.
+
+Prior to run targets, you may setup environment variables:
+- ~HMTEST_RUN_DIR~: Where model weights and intermediate validation data will be stored.
+- ~HMTEST_DATA_DIR~: Where raw-data and meta-data are stored.
+
+If not set, these directories will be automatically created in project's root.
 
 - TODO: Set permission of files generated from docker container. They are now ~root:root~
