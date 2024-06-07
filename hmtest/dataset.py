@@ -1,10 +1,9 @@
 import concurrent.futures
-from pathlib import Path
-from collections import defaultdict
-from tqdm import tqdm
 from dataclasses import dataclass
+from pathlib import Path
 
 import typer
+from tqdm import tqdm
 from typing_extensions import Annotated
 
 IMAGE_DOWNLOAD_URL = r"https://services.cancerimagingarchive.net/nbia-api/services/v1/getImage?SeriesInstanceUID={}"
@@ -160,6 +159,10 @@ def add_file_names_to_meta(meta: Path, dicom_root_path: Path, out: Path):
 
     """
     import pandas as pd
+
+    if out.exists():
+        print(f"found file at {out}, quitting")
+        return
 
     print(f"parsing DICOM directory: {dicom_root_path}...")
     images = _traverse_dicom_dirs(dicom_root_path)

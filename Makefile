@@ -41,8 +41,8 @@ build-image:
 
 fetch-raw-data:
 	mkdir -p $(DATA_DIR)/dicom
-	$(DOCKER_RUN) $(POETRY_RUN) hmtest/main.py fetch-raw-data -w 32 assets/meta.csv /data/dicom
+	$(DOCKER_RUN) $(POETRY_RUN) hmtest/main.py dset fetch-raw-data -w 32 assets/meta.csv /data/dicom
 
 preprocess-data: fetch-raw-data
 	mkdir -p $(DATA_DIR)/png
-	$(DOCKER_RUN) $(POETRY_RUN) hmtest/main.py fetch-raw-data -w 32 assets/meta.csv /data/dicom
+	$(DOCKER_RUN) $(POETRY_RUN) hmtest/main.py dset add-file-names-to-meta /data/meta.csv /data/dicom /data/meta-expanded.csv
