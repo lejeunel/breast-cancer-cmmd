@@ -38,12 +38,10 @@ COPY hmtest/* ./hmtest/
 # [OPTIONAL] Validate the project is properly configured
 RUN poetry check
 
-RUN wget -q -O nbia-retriever.deb https://cbiit-download.nci.nih.gov/nbia/releases/ForTCIA/NBIADataRetriever_4.4/nbia-data-retriever-4.4.2.deb \
-  && dpkg -i nbia-retriever.deb \
-  && rm nbia-retriever.deb
-
 # Install Dependencies
 RUN poetry install --no-interaction --no-cache
 
-# Copy Application
-COPY . /app
+# Copy app and assets
+ADD assets /app/assets
+ADD hmtest /app/hmtest
+ADD report /app/report

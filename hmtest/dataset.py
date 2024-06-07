@@ -8,7 +8,9 @@ IMAGE_DOWNLOAD_URL = r"https://services.cancerimagingarchive.net/nbia-api/servic
 BreastsScan = namedtuple("BreastsScan", ["left", "right"])
 
 
-def fetch_one_patient(series_uid, out_dir, i=None, total=None) -> BreastsScan:
+def fetch_and_save_one_patient(
+    series_uid: str, out_dir: Path, i: int = None, total: int = None
+):
     """
     Fetch raw DICOM given series_uid from cancerimagingarchive API,
     and return results as a set of DICOM objects (one for each breast)
@@ -24,10 +26,10 @@ def fetch_one_patient(series_uid, out_dir, i=None, total=None) -> BreastsScan:
     zf = zipfile.ZipFile(io.BytesIO(zip_bytes), "r")
     for name in zf.namelist():
         if name.endswith(".dcm"):
-            out_path = Path(out_dir) / "{}-{}".format(series_uid, name)
-            dicom_bytes = zf.read(name)
-            with open(out_path, "wb") as f:
-                f.write(dicom_bytes)
+            out_path = Path(out_dir)
+            zf.extract(name, out_path)
+
+    zf.close()
 
     msg = ""
 
@@ -39,7 +41,7 @@ def fetch_one_patient(series_uid, out_dir, i=None, total=None) -> BreastsScan:
 
 
 def fetch_raw_data(
-    meta_path: Annotated[Path, typer.Argument(help="path to output unified csv file")],
+    meta_path: Annotated[Path, typer.Argument(help="path to csv file containing UIDs")],
     out_path: Annotated[
         Path,
         typer.Argument(
@@ -56,18 +58,23 @@ def fetch_raw_data(
     meta = pd.read_csv(meta_path)
 
     payloads = [
-        [meta.iloc[i]["Series UID"], out_path, i, meta.shape[0]]
-        for i in range(meta.shape[0])
+        [r["Series UID"], out_path / r["Series UID"], i, meta.shape[0]]
+        for i, r in meta.iterrows()
     ]
 
-    fetch_one_patient(*payloads[0])
+    print(f"meta file contains {len(payloads)} scans")
+
+    payloads = [p for p in payloads if not p[1].exists()]
+    print(f"{len(payloads)} download(s) remaining ")
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
         # Start the load operations and mark each future with its URL
-        future_to_scans = {executor.submit(fetch_one_patient, *p): p for p in payloads}
+        future_to_scans = {
+            executor.submit(fetch_and_save_one_patient, *p): p for p in payloads
+        }
         for future in concurrent.futures.as_completed(future_to_scans):
             scan = future_to_scans[future]
             try:
                 data = future.result()
             except Exception as exc:
-                print("generated an exception: %s" % (exc))
+                print("Exception: %s" % (exc))
