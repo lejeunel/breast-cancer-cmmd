@@ -1,11 +1,25 @@
+import concurrent.futures
+from pathlib import Path
+from collections import defaultdict
+from tqdm import tqdm
+from dataclasses import dataclass
+
 import typer
 from typing_extensions import Annotated
-from pathlib import Path
-from collections import namedtuple
-import concurrent.futures
 
 IMAGE_DOWNLOAD_URL = r"https://services.cancerimagingarchive.net/nbia-api/services/v1/getImage?SeriesInstanceUID={}"
-BreastsScan = namedtuple("BreastsScan", ["left", "right"])
+DICOM_ORIENTATION_TAG = (0x0020, 0x0020)
+
+
+@dataclass
+class BreastImage:
+    serie_id: str
+    side: str
+    orientation: str
+    filename: str
+    abnormality: str = ""
+    classification: str = ""
+    subtype: str = ""
 
 
 def fetch_and_save_one_patient(
@@ -13,10 +27,11 @@ def fetch_and_save_one_patient(
 ):
     """
     Fetch raw DICOM given series_uid from cancerimagingarchive API,
-    and return results as a set of DICOM objects (one for each breast)
+    and save results as DICOM files
     """
-    import zipfile
     import io
+    import zipfile
+
     import requests
 
     url = IMAGE_DOWNLOAD_URL.format(series_uid)
@@ -78,3 +93,102 @@ def fetch_raw_data(
                 data = future.result()
             except Exception as exc:
                 print("Exception: %s" % (exc))
+
+
+def merge_meta_and_annotations(meta: Path, annotations: Path, out: Path):
+    """
+    Build a single meta-data file that includes
+    paths to raw-images and annotations
+    """
+    import pandas as pd
+
+    meta = pd.read_csv(meta)
+    annotations = pd.read_csv(annotations)
+    merged = pd.merge(meta, annotations, left_on="Subject ID", right_on="ID1")
+    merged.sort_values("ID1", inplace=True)
+
+    merged.drop(columns="Subject ID", inplace=True)
+    merged.rename(
+        columns={
+            "ID1": "patient_id",
+            "Series UID": "serie_id",
+            "Study ID": "study_id",
+            "Number of Images": "num_images",
+            "LeftRight": "left_right",
+        },
+        inplace=True,
+    )
+
+    merged.left_right = merged.left_right.replace({"L": "left", "R": "right"})
+    merged.rename(columns={"left_right": "side"}, inplace=True)
+
+    print(f"saving merge meta-data to {out}")
+    merged.to_csv(out, index=False)
+
+
+def _traverse_dicom_dirs(dicom_path: Path) -> list[BreastImage]:
+    """
+    Walk directory containing dicom files to extract side, angle, and file name for each file.
+    Return a list of BreastImage.
+    """
+    from pydicom import dcmread
+
+    images = []
+
+    scans = [d for d in dicom_path.iterdir()]
+    for d in tqdm(scans):
+        for f in d.glob("*.dcm"):
+            ds = dcmread(f)
+            orientation = ds[*DICOM_ORIENTATION_TAG].value
+            image = BreastImage(
+                side="left" if orientation in [["A", "R"], ["A", "FR"]] else "right",
+                orientation=(
+                    "low" if orientation in [["P", "L"], ["P", "FL"]] else "high"
+                ),
+                filename=f.name,
+                serie_id=d.name,
+            )
+            images.append(image)
+
+    return images
+
+
+def add_file_names_to_meta(meta: Path, dicom_root_path: Path, out: Path):
+    """
+    Traverse DICOM directory and retrieve meta-data (body-side, angle).
+    Then, append corresponding meta-data (annotations, ...).
+
+    """
+    import pandas as pd
+
+    print(f"parsing DICOM directory: {dicom_root_path}...")
+    images = _traverse_dicom_dirs(dicom_root_path)
+
+    meta = pd.read_csv(meta)
+    meta.subtype = meta.subtype.fillna("")
+
+    print("building meta-data file...")
+    n_skipped = 0
+    for im in tqdm(images):
+        meta_ = meta.loc[(meta.serie_id == im.serie_id) & (meta.side == im.side)]
+        if meta_.empty:
+            n_skipped += 1
+            continue
+
+        im.abnormality = meta_.iloc[0].abnormality
+        im.classification = meta_.iloc[0].classification
+        im.subtype = meta_.iloc[0].subtype
+
+    if n_skipped > 0:
+        print(f"[!!!] found {n_skipped} images without annotations")
+
+    print(f"found {len(images)} images with annotations")
+    meta_out = pd.DataFrame.from_records([im.__dict__ for im in images])
+    print(f"writing meta-data to {out}")
+    meta_out.to_csv(out)
+
+
+app = typer.Typer(help="Fetch and curate raw-data")
+app.command(help="Fetch raw data")(fetch_raw_data)
+app.command(help="Merge meta data")(merge_meta_and_annotations)
+app.command(help="Append file names")(add_file_names_to_meta)
