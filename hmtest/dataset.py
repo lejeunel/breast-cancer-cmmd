@@ -65,7 +65,7 @@ def fetch_raw_data(
     workers: Annotated[int, typer.Option("-w", help="Number of worker threads")] = 32,
 ):
     """
-    Fetch raw DICOMs using provided meta-data and save to disk
+    Fetch DICOM files from server using provided meta-data and save to disk
     """
     import pandas as pd
 
@@ -82,7 +82,6 @@ def fetch_raw_data(
     print(f"{len(payloads)} download(s) remaining ")
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
-        # Start the load operations and mark each future with its URL
         future_to_scans = {
             executor.submit(fetch_and_save_one_patient, *p): p for p in payloads
         }

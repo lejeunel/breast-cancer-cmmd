@@ -42,6 +42,5 @@ RUN poetry check
 RUN poetry install --no-interaction --no-cache
 
 # Copy app and assets
-ADD assets /app/assets
 ADD hmtest /app/hmtest
 ADD report /app/report
