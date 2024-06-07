@@ -1,6 +1,25 @@
 #+title: A Deep-Learning Approach to Breast Cancer Screening from Mammography Images
 
-* Installation
+* Usage & Configuration
+
+** Using Docker and Make
+
+We provide a ~Dockerfile~ along with a ~Makefile~ to facilitate reproducibility and
+abstract-away some pipeline steps.
+
+Prior to run targets, you may setup environment variables:
+- ~HMTEST_RUN_DIR~: Where model weights and intermediate validation data will be stored.
+- ~HMTEST_DATA_DIR~: Where raw-data and meta-data are stored.
+
+If not set, these directories will be automatically created in project's root.
+
+Finally, you may run the whole training and testing pipeline using:
+
+#+begin_src sh
+make all
+#+end_src
+
+** On Host Machine
 
 - Install [[https://python-poetry.org/docs/#installation][Poetry]] in user-space.
 - move to project's root and install project with:
@@ -12,17 +31,12 @@ poetry install
 This will look for an existing and activated virtual environment, and create one
 in current directory if it does not exist.
 
+Last, check out the pipeline given in the ~Makefile~. Each target basically reduce to
+calling a CLI. You may start with:
 
+#+begin_src shell
+python hmtest/main.py --help
+#+end_src
 
-* Usage & Configuration
-
-We provide a ~Dockerfile~ along with a ~Makefile~ to facilitate reproducibility and
-abstract-away some pipeline steps.
-
-Prior to run targets, you may setup environment variables:
-- ~HMTEST_RUN_DIR~: Where model weights and intermediate validation data will be stored.
-- ~HMTEST_DATA_DIR~: Where raw-data and meta-data are stored.
-
-If not set, these directories will be automatically created in project's root.
 
 - TODO: Set permission of files generated from docker container. They are now ~root:root~
