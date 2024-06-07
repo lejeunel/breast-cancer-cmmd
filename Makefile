@@ -1,7 +1,5 @@
 DOCKER_EXEC := docker
 DOCKER_IMAGE := lejeunel379/hmi
-VENV := hera-mi-test
-PYTHON_VERSION := 3.12.0
 VERSION := $(shell git describe --always --dirty --long)
 DOCKER_TAGGED_IMAGE := $(DOCKER_IMAGE):$(VERSION)
 POETRY_RUN := poetry run python
@@ -29,11 +27,6 @@ DOCKER_RUN := $(DOCKER_EXEC) \
 
 default:
 	echo "See readme"
-
-init:
-	pyenv install ${PYTHON_VERSION}
-	pyenv virtualenv ${PYTHON_VERSION} ${VENV}
-	poetry install
 
 build-image:
 	$(DOCKER_EXEC) build . \
