@@ -8,6 +8,10 @@ packages = [{include = 'hmtest'}]
 
 [tool.poetry.dependencies]
 python = "^3.12"
+pandas = "^2.2.2"
+typer = {extras = ["all"], version = "^0.12.3"}
+pydicom = "^2.4.4"
+requests = "^2.32.3"
 
 
 [build-system]

@@ -1,0 +1,63 @@
+% Created 2024-06-07 Fri 11:30
+% Intended LaTeX compiler: pdflatex
+\documentclass[11pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{graphicx}
+\usepackage{longtable}
+\usepackage{wrapfig}
+\usepackage{rotating}
+\usepackage[normalem]{ulem}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{capt-of}
+\usepackage{hyperref}
+\usepackage[backend=bibtex]{biblatex}
+\addbibresource{/home/laurent/Documents/code/hera-mi-test/report/myrefs.bib}
+\usepackage{fancyvrb}
+\DefineVerbatimEnvironment{verbatim}{Verbatim}{framerule=0.5mm,frame=lines,numbers=left}
+\bibliography{myrefs.bib}
+\author{Laurent Lejeune}
+\date{\today}
+\title{A Deep-Learning Approach to Breast Cancer Screening from Mammography Images}
+\hypersetup{
+ pdfauthor={Laurent Lejeune},
+ pdftitle={A Deep-Learning Approach to Breast Cancer Screening from Mammography Images},
+ pdfkeywords={},
+ pdfsubject={},
+ pdfcreator={Emacs 29.3 (Org mode 9.6.24)}, 
+ pdflang={English}}
+\begin{document}
+
+\maketitle
+\tableofcontents
+
+
+\section{Mammography Dataset}
+\label{sec:orgc746c8a}
+
+We use the publicly available Chinese Mammography Database (CMMD) \autocite{cai23},
+which originally contains \(\approx 1871\) patients screened for breast cancer.
+and apply relevant filtering criteria to remove:
+\begin{itemize}
+\item Patients with history of previous breast biopsy within 1 week, or any therapy for breast lesions
+prior to mammography
+\item Patients with breasts prosthesis
+\item Images with substantial motion artifact
+\end{itemize}
+
+Each patient is then diagnosed by an expert and assigned the following target variables:
+\begin{itemize}
+\item \(y_{p} \in \{\text{benign}, \text{malignant}\}\) indicates the type of tumor.
+\item \(y_{a} \in \{\text{calcification}, \text{mass}, \text{both}\}\) indicates the type of abnormality, where \texttt{both} means that both \texttt{calcification} and \texttt{mass} are present.
+\item \(y_s \in \{\text{luminal-A}, \text{luminal-B},\text{HER2-positive},\text{triple-negative},\text{missing}\}\) a
+subtype information (possibly missing).
+\end{itemize}
+
+
+
+\section{Dataset exploration}
+\label{sec:orgfbd253f}
+
+\printbibliography
+\end{document}
