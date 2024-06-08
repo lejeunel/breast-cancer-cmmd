@@ -32,6 +32,9 @@ build-image:
 	$(DOCKER_EXEC) build . \
 		-t $(DOCKER_TAGGED_IMAGE)
 
+push-image:
+	$(DOCKER_EXEC) push $(DOCKER_TAGGED_IMAGE)
+
 raw-data:
 	mkdir -p $(DATA_DIR)/dicom
 	$(DOCKER_RUN) $(POETRY_RUN) hmtest/main.py cmmd fetch-raw-data -w 32 /assets/meta.csv /data/dicom
