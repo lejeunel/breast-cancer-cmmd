@@ -95,8 +95,8 @@ def fetch_raw_data(
 
 def merge_meta_and_annotations(meta: Path, annotations: Path, out: Path):
     """
-    Build a single meta-data file that includes
-    paths to raw-images and annotations
+    Builds a single meta-data file from list of series (one row per patient),
+    and annotations (one row per label)
     """
     import pandas as pd
 
@@ -151,9 +151,9 @@ def _traverse_dicom_dirs(dicom_path: Path) -> list[BreastImage]:
     return images
 
 
-def add_file_names_to_meta(meta: Path, dicom_root_path: Path, out: Path):
+def build_per_image_meta(meta: Path, dicom_root_path: Path, out: Path):
     """
-    Traverse DICOM directory and retrieve meta-data (body-side, angle).
+    Traverse DICOM directory and retrieve meta-data (body-side, angle) on each image.
     Then, append corresponding meta-data (annotations, ...).
 
     """
@@ -173,13 +173,12 @@ def add_file_names_to_meta(meta: Path, dicom_root_path: Path, out: Path):
     n_skipped = 0
     for im in tqdm(images):
         meta_ = meta.loc[(meta.serie_id == im.serie_id) & (meta.side == im.side)]
-        if meta_.empty:
+        if not meta_.empty:
+            im.abnormality = meta_.iloc[0].abnormality
+            im.classification = meta_.iloc[0].classification
+            im.subtype = meta_.iloc[0].subtype
+        else:
             n_skipped += 1
-            continue
-
-        im.abnormality = meta_.iloc[0].abnormality
-        im.classification = meta_.iloc[0].classification
-        im.subtype = meta_.iloc[0].subtype
 
     if n_skipped > 0:
         print(f"[!!!] found {n_skipped} images without annotations")
@@ -187,10 +186,10 @@ def add_file_names_to_meta(meta: Path, dicom_root_path: Path, out: Path):
     print(f"found {len(images)} images with annotations")
     meta_out = pd.DataFrame.from_records([im.__dict__ for im in images])
     print(f"writing meta-data to {out}")
-    meta_out.to_csv(out)
+    meta_out.to_csv(out, index=False)
 
 
-app = typer.Typer(help="Fetch and curate raw-data")
+app = typer.Typer()
 app.command(help="Fetch raw data")(fetch_raw_data)
 app.command(help="Merge meta data")(merge_meta_and_annotations)
-app.command(help="Append file names")(add_file_names_to_meta)
+app.command(help="Append file names")(build_per_image_meta)

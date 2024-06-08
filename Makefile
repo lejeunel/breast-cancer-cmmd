@@ -33,14 +33,14 @@ build-image:
 		-f ./Dockerfile \
 		-t $(DOCKER_TAGGED_IMAGE)
 
-fetch-raw-data:
+raw-data:
 	mkdir -p $(DATA_DIR)/dicom
 	$(DOCKER_RUN) $(POETRY_RUN) hmtest/main.py dset fetch-raw-data -w 32 /assets/meta.csv /data/dicom
 
-preprocess-data: fetch-raw-data
+annotated-meta: raw-data
 	mkdir -p $(DATA_DIR)/png
-	$(DOCKER_RUN) $(POETRY_RUN) hmtest/main.py dset merge-meta-and-annotations /assets/meta.csv /assets/annotations.csv /data/meta.csv
-	$(DOCKER_RUN) $(POETRY_RUN) hmtest/main.py dset add-file-names-to-meta /data/meta.csv /data/dicom /data/meta-expanded.csv
+	$(DOCKER_RUN) $(POETRY_RUN) hmtest/main.py dset merge-meta-and-annotations /assets/meta.csv /assets/annotations.csv /data/meta-annotated.csv
+	$(DOCKER_RUN) $(POETRY_RUN) hmtest/main.py dset build-per-image-meta /data/meta-annotated.csv /data/dicom /data/meta-images.csv
 
 clean:
 	sudo rm -rf $(RUN_DIR)/*
