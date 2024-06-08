@@ -7,17 +7,18 @@
 #+bibliography: myrefs.bib
 #+LATEX_HEADER: \bibliography{myrefs.bib}
 
-#+BEGIN_SRC python :exports none :session
+#+BEGIN_SRC python :session :exports none
 from pathlib import Path
 import seaborn as sns
 import pandas as pd
 import numpy as np
 import matplotlib
+import matplotlib.pyplot as plt
 matplotlib.use("tkagg")
+sns.set_theme(style="darkgrid")
 
 data_path = Path('../data')
 
-from hmtest.ml.dataloader import DataLoader
 #+END_SRC
 #+RESULTS:
 
@@ -42,26 +43,31 @@ target variables:
 
 
 ** Exploration
-#+BEGIN_SRC python :session :exports results :results output
+#+BEGIN_SRC python :session :exports results :results none
+from hmtest.ml.dataloader import DataLoader
 image_size = 320
 
-dset = DataLoader(data_path / 'png', data_path / 'meta-images-split.csv',
-                  split='train')
-meta = dset.meta
+# dset = DataLoader(data_path / 'png', data_path / 'meta-images-split.csv',
+#                   split='train')
+# meta = dset.meta
+#+END_SRC
+
+
+#+BEGIN_SRC python :session :exports results :results graphics file :file images/distribs.png
+fig_path = 'images/distrib.png'
+# fig, ax = plt.subplots(nrows=1, ncols=1, dpi=60,
+#                          figsize=(10,15))
+# sns.histplot(meta, x='abnormality', hue="target", ax=ax)
+x=numpy.linspace(-15,15)
+plt.plot(numpy.sin(x)/x)
+fig.tight_layout()
 #+END_SRC
 
 #+RESULTS:
-
-#+BEGIN_SRC python :session :exports results :results graphics file output :file images/distributions.png
-fig, axes = plt.subplots(nrows=4, ncols=3, dpi=400,
-                         figsize=(10,18))
-axes = axes.flatten()
-sns.histplot(df, x='', hue="target", ax=axes[0])
-#+END_SRC
+[[file:images/distribs.png]]
 
 #+CAPTION: Distributions of selected features on each class.
 #+LABEL: fig:distributions
 #+RESULTS:
-[[file:images/distributions.png]]
 
 #+print_bibliography:

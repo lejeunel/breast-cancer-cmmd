@@ -30,7 +30,6 @@ default:
 
 build-image:
 	$(DOCKER_EXEC) build . \
-		-f ./Dockerfile \
 		-t $(DOCKER_TAGGED_IMAGE)
 
 raw-data:

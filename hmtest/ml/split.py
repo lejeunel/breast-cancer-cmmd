@@ -39,6 +39,10 @@ def split(
         len(missing_cols) == 0
     ), f"provided non-existing columns for stratification: {missing_cols}"
 
+    non_annotated = meta[stratif_cols].isna().sum(axis=1) == len(stratif_cols)
+    print(f"removing {non_annotated.sum()} rows without values for {stratif_cols}")
+    meta = meta.loc[~non_annotated].reset_index(drop=True)
+
     strat_label = meta[stratif_cols].apply(
         lambda row: "_".join(row.values.astype(str)), axis=1
     )
