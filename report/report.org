@@ -12,16 +12,14 @@ from pathlib import Path
 import seaborn as sns
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
 import matplotlib
-import random
-import torch
 matplotlib.use("tkagg")
 
-from obj_detection.dataloader import CarDataset
+data_path = Path('../data')
+
+from hmtest.ml.dataloader import DataLoader
 #+END_SRC
 #+RESULTS:
-: None
 
 * Mammography Dataset
 
@@ -43,6 +41,27 @@ target variables:
   subtype information (possibly missing).
 
 
-* Dataset exploration
+** Exploration
+#+BEGIN_SRC python :session :exports results :results output
+image_size = 320
+
+dset = DataLoader(data_path / 'png', data_path / 'meta-images-split.csv',
+                  split='train')
+meta = dset.meta
+#+END_SRC
+
+#+RESULTS:
+
+#+BEGIN_SRC python :session :exports results :results graphics file output :file images/distributions.png
+fig, axes = plt.subplots(nrows=4, ncols=3, dpi=400,
+                         figsize=(10,18))
+axes = axes.flatten()
+sns.histplot(df, x='', hue="target", ax=axes[0])
+#+END_SRC
+
+#+CAPTION: Distributions of selected features on each class.
+#+LABEL: fig:distributions
+#+RESULTS:
+[[file:images/distributions.png]]
 
 #+print_bibliography:

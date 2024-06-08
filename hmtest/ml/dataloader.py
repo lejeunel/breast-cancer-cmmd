@@ -23,6 +23,7 @@ class DataLoader(tf.keras.utils.Sequence):
         self.meta = pd.read_csv(meta_path)
         self.meta = self.meta.loc[self.meta.split == split].reset_index()
 
+        self.meta = self.meta.loc[~self.meta.classification.isna()]
         self.meta["target"] = [
             1 if r.classification == "Malignant" else 0 for _, r in self.meta.iterrows()
         ]
@@ -79,6 +80,8 @@ class DataLoader(tf.keras.utils.Sequence):
                 anti_aliasing=True,
             )
 
+        # image = image / 255
+        # image = (image * 2) - 1
         image = image[..., None]
 
         return image
@@ -89,9 +92,11 @@ class DataLoader(tf.keras.utils.Sequence):
         """
 
         import numpy as np
+        import pandas as pd
 
         images = []
         targets = []
+        metas = []
         for ind in self.epoch_batch_indices[batch_ind]:
             meta = self.meta.iloc[ind]
             image_path = (
@@ -101,9 +106,15 @@ class DataLoader(tf.keras.utils.Sequence):
             )
 
             image = self._prepare_image(image_path)
+
             images.append(image)
             targets.append(meta.target)
-        return {"image": np.array(images), "target": np.array(targets)}
+            metas.append(meta)
+        return {
+            "image": np.array(images),
+            "target": np.array(targets),
+            "meta": pd.DataFrame(metas),
+        }
 
     def on_epoch_end(self):
         """

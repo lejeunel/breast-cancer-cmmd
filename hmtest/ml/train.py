@@ -13,6 +13,7 @@ def make_dataloaders(
     batch_size: int,
     image_size: int,
     splits=["train", "val"],
+    seed=42,
 ):
     from hmtest.ml.dataloader import DataLoader
 
@@ -37,8 +38,9 @@ def train(
     image_size: Annotated[int, typer.Option(help="size of input image")] = 512,
     batch_size: Annotated[int, typer.Option()] = 16,
     learning_rate: Annotated[float, typer.Option()] = 1e-3,
-    weight_decay: Annotated[float, typer.Option()] = 1e-6,
+    weight_decay: Annotated[float, typer.Option()] = 0,
     n_epochs: Annotated[int, typer.Option()] = 200,
+    seed: Annotated[int, typer.Option()] = 42,
     resume_cp_path: Annotated[
         Optional[Path], typer.Option(help="checkpoint to resume from")
     ] = None,
@@ -65,11 +67,19 @@ def train(
     optim = Adam(learning_rate=learning_rate, weight_decay=weight_decay)
     criterion = BinaryCrossentropy()
     dataloaders = make_dataloaders(
-        image_root_path, meta_path, image_size=image_size, batch_size=batch_size
+        image_root_path,
+        meta_path,
+        image_size=image_size,
+        batch_size=batch_size,
+        seed=seed,
     )
     trainer = Trainer(model, optim, criterion)
 
     tboard_writer = tf.summary.create_file_writer(str(run_path))
     post_batch_clbks = [BatchLossWriterCallback(tboard_writer)]
 
-    trainer.train_one_epoch(dataloaders["train"], post_batch_callbacks=post_batch_clbks)
+    for e in range(n_epochs):
+        print(f"Epoch {e+1}/{n_epochs}")
+        trainer.train_one_epoch(
+            dataloaders["train"], post_batch_callbacks=post_batch_clbks
+        )

@@ -13,10 +13,10 @@ Prior to run targets, you may setup environment variables:
 
 If not set, these directories will be automatically created in project's root.
 
-Finally, you may run the whole training and testing pipeline using:
+Finally, you may run the data fetching pipeline with
 
 #+begin_src sh
-make all
+make ml-splitted-dataset
 #+end_src
 
 ** On Host Machine
