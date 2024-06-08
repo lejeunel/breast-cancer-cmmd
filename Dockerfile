@@ -16,9 +16,6 @@ RUN python3 -m venv $POETRY_VENV \
 
 # Create a new stage from the base python image
 FROM python-base as builder-base
-RUN apt-get update \
-    && apt-get install --no-install-recommends -y \
-        xdg-utils
 
 # This fixes a bug in xdg-desktop-menu
 RUN mkdir /usr/share/desktop-directories/

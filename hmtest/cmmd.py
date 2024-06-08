@@ -72,7 +72,7 @@ def fetch_raw_data(
     meta = pd.read_csv(meta_path)
 
     payloads = [
-        [r["Series UID"], out_path / r["Series UID"], i, meta.shape[0]]
+        [r["serie_id"], out_path / r["serie_id"], i, meta.shape[0]]
         for i, r in meta.iterrows()
     ]
 

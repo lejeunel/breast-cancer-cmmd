@@ -40,3 +40,7 @@ python hmtest/main.py --help
 
 
 - TODO: Set permission of files generated from docker container. They are now ~root:root~
+** Questions / Next steps
+- /The result of the experiments shall be reusable and sharable metrics/: Is this a typo? Does this simply means to generate a predictions on the test set and distribute these as a csv file?
+- /We might not need or be able to download the whole dataset so your code should be allow to process a portion of it./
+- Investigate on effect of adding classification task on type of abnormality.

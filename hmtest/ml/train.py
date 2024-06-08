@@ -58,14 +58,15 @@ def train(
 
     from hmtest.ml.model import make_model
     from hmtest.ml.trainer import Trainer
-    from hmtest.ml.callbacks import BatchLossWriterCallback
+    from hmtest.ml.callbacks import BatchLossWriterCallback, BatchMetricWriterCallback
+    from hmtest.ml.metrics import weighted_f1_scorer
     from keras.optimizers import Adam
     from keras.losses import BinaryCrossentropy
     import tensorflow as tf
 
     model = make_model(input_shape=(512, 512, 1))
     optim = Adam(learning_rate=learning_rate, weight_decay=weight_decay)
-    criterion = BinaryCrossentropy()
+    criterion = BinaryCrossentropy(from_logits=True)
     dataloaders = make_dataloaders(
         image_root_path,
         meta_path,
@@ -76,7 +77,10 @@ def train(
     trainer = Trainer(model, optim, criterion)
 
     tboard_writer = tf.summary.create_file_writer(str(run_path))
-    post_batch_clbks = [BatchLossWriterCallback(tboard_writer)]
+    post_batch_clbks = [
+        BatchLossWriterCallback(tboard_writer),
+        BatchMetricWriterCallback(tboard_writer, weighted_f1_scorer(0.5), "f1"),
+    ]
 
     for e in range(n_epochs):
         print(f"Epoch {e+1}/{n_epochs}")

@@ -47,27 +47,9 @@ target variables:
 from hmtest.ml.dataloader import DataLoader
 image_size = 320
 
-# dset = DataLoader(data_path / 'png', data_path / 'meta-images-split.csv',
-#                   split='train')
-# meta = dset.meta
+dset = DataLoader(data_path / 'png', data_path / 'meta-images-split.csv',
+                  split='train')
+meta = dset.meta
 #+END_SRC
-
-
-#+BEGIN_SRC python :session :exports results :results graphics file :file images/distribs.png
-fig_path = 'images/distrib.png'
-# fig, ax = plt.subplots(nrows=1, ncols=1, dpi=60,
-#                          figsize=(10,15))
-# sns.histplot(meta, x='abnormality', hue="target", ax=ax)
-x=numpy.linspace(-15,15)
-plt.plot(numpy.sin(x)/x)
-fig.tight_layout()
-#+END_SRC
-
-#+RESULTS:
-[[file:images/distribs.png]]
-
-#+CAPTION: Distributions of selected features on each class.
-#+LABEL: fig:distributions
-#+RESULTS:
 
 #+print_bibliography:

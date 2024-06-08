@@ -10,7 +10,7 @@ def make_model(input_shape: tuple[int], dropout_rate: float = 0.0):
         include_preprocessing=True,
         include_top=True,
         weights=None,
-        classifier_activation="sigmoid",
+        classifier_activation=None,
     )
 
     # return EfficientNetB0(

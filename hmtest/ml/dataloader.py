@@ -1,5 +1,11 @@
 from pathlib import Path
+
+import numpy as np
+import pandas as pd
 import tensorflow as tf
+from skimage.io import imread
+from skimage.transform import resize
+from sklearn.utils.class_weight import compute_class_weight
 
 
 class DataLoader(tf.keras.utils.Sequence):
@@ -16,8 +22,6 @@ class DataLoader(tf.keras.utils.Sequence):
         seed: int = 42,
     ):
         """ """
-        import pandas as pd
-        import numpy as np
 
         super().__init__()
         self.meta = pd.read_csv(meta_path)
@@ -39,6 +43,13 @@ class DataLoader(tf.keras.utils.Sequence):
         np.random.seed(seed)
         self.epoch_batch_indices = self._epoch_batch_indices()
 
+    def get_class_weights(self) -> dict:
+        return compute_class_weight(
+            class_weight="balanced",
+            classes=np.unique(self.meta.target),
+            y=self.meta.target,
+        )
+
     def __len__(self):
         """
         number of batches the generator can produce
@@ -50,7 +61,6 @@ class DataLoader(tf.keras.utils.Sequence):
         returns a n_batches x batch_size array with the indices for each
         batch for an epoch
         """
-        import numpy as np
 
         if self.shuffle:
             np.random.shuffle(self.sample_indices)
@@ -67,8 +77,6 @@ class DataLoader(tf.keras.utils.Sequence):
         Reads an image from disk and transform it prior
         to feeding to batch
         """
-        from skimage.io import imread
-        from skimage.transform import resize
 
         image = imread(image_path)
 
@@ -90,9 +98,6 @@ class DataLoader(tf.keras.utils.Sequence):
         """
         generates a batch of data
         """
-
-        import numpy as np
-        import pandas as pd
 
         images = []
         targets = []
@@ -120,21 +125,6 @@ class DataLoader(tf.keras.utils.Sequence):
         """
         maybe reshuffle after epoch
         """
-        import numpy as np
 
         self.sample_indices = np.arange(self.n_samples)
         self.epoch_batch_indices = self._epoch_batch_indices()
-
-
-if __name__ == "__main__":
-    from pathlib import Path
-
-    root_path = Path("data")
-    dl_train = DataLoader(
-        root_path / "png",
-        root_path / "meta-images-split.csv",
-        "train",
-        batch_size=4,
-        image_size=320,
-    )
-    batch = dl_train[0]

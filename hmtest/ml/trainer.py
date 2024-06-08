@@ -21,28 +21,36 @@ class Trainer:
 
         import tensorflow as tf
 
+        class_weights = dataloader.get_class_weights()
+
         for s in (pbar := tqdm(dataloader)):
             with tf.GradientTape() as tape:
 
                 images = s["image"]
-                pred_probas = self.model(images, training=True)
+                logits = self.model(images, training=True)
 
-                loss = self.criterion(s["target"], pred_probas)
+                sample_weights = class_weights[s["target"]]
 
-                result = Batch(s["image"], pred_probas, loss)
-                print(s["meta"])
-                print("min: {}".format([im.min() for im in images]))
-                print("max: {}".format([im.max() for im in images]))
-                print(pred_probas)
+                loss = self.criterion(s["target"], logits, sample_weight=sample_weights)
+
+                result = Batch(
+                    s["image"],
+                    tf.math.sigmoid(logits).numpy(),
+                    s["target"][..., None],
+                    loss,
+                )
 
             gradients = tape.gradient(loss, self.model.trainable_weights)
             self.optimizer.apply_gradients(zip(gradients, self.model.trainable_weights))
 
-            pbar.set_description(f"[train] lss: {loss.numpy().sum():.2E}")
+            pbar.set_description(f"[train] lss: {loss.numpy().sum():.2e}")
 
             for clbk in post_batch_callbacks:
                 clbk(result, self.iter)
 
             self.iter += 1
+
+        for clkb in post_batch_callbacks:
+            clbk.on_epoch_end()
 
         self.epoch += 1
