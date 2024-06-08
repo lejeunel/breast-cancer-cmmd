@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Optional
 
 from hmtest import cmmd
-from hmtest import mdl
+from hmtest import ml
 
 app = typer.Typer()
 app.add_typer(
@@ -12,7 +12,11 @@ app.add_typer(
     name="cmmd",
     help="Tools to build the Chinese Mammography Database (CMMD) dataset",
 )
-app.add_typer(mdl.app, name="mdl", help="Model training and testing")
+app.add_typer(
+    ml.app,
+    name="ml",
+    help="Model training, validation, ...",
+)
 
 
 if __name__ == "__main__":

@@ -35,12 +35,20 @@ build-image:
 
 raw-data:
 	mkdir -p $(DATA_DIR)/dicom
-	$(DOCKER_RUN) $(POETRY_RUN) hmtest/main.py dset fetch-raw-data -w 32 /assets/meta.csv /data/dicom
+	$(DOCKER_RUN) $(POETRY_RUN) hmtest/main.py cmmd fetch-raw-data -w 32 /assets/meta.csv /data/dicom
 
-annotated-meta: raw-data
-	mkdir -p $(DATA_DIR)/png
-	$(DOCKER_RUN) $(POETRY_RUN) hmtest/main.py dset merge-meta-and-annotations /assets/meta.csv /assets/annotations.csv /data/meta-annotated.csv
-	$(DOCKER_RUN) $(POETRY_RUN) hmtest/main.py dset build-per-image-meta /data/meta-annotated.csv /data/dicom /data/meta-images.csv
+annotated-patient-meta: raw-data
+	$(DOCKER_RUN) $(POETRY_RUN) hmtest/main.py cmmd merge-meta-and-annotations /assets/meta.csv /assets/annotations.csv /data/meta-annotated.csv
+
+per-image-meta: annotated-patient-meta
+	$(DOCKER_RUN) $(POETRY_RUN) hmtest/main.py cmmd build-per-image-meta /data/meta-annotated.csv /data/dicom /data/meta-images.csv
+
+png-images: per-image-meta
+	$(DOCKER_RUN) $(POETRY_RUN) hmtest/main.py cmmd dicom-to-png /data/meta-images.csv /data/dicom /data/png
+
+ml-splitted-dataset: png-images
+	$(DOCKER_RUN) $(POETRY_RUN) hmtest/main.py mdl split /data/meta-images.csv /data/meta-images-split.csv 0.2 0.2
+
 
 clean:
 	sudo rm -rf $(RUN_DIR)/*

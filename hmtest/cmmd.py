@@ -189,7 +189,40 @@ def build_per_image_meta(meta: Path, dicom_root_path: Path, out: Path):
     meta_out.to_csv(out, index=False)
 
 
+def dicom_to_png(
+    meta: Path,
+    dicom_root_path: Path,
+    out_root_path: Path,
+    width: Annotated[int, typer.Option(help="Output width in pixel")] = 512,
+):
+    """
+    Convert DICOM images to PNG.
+    """
+    import pandas as pd
+    from pydicom import dcmread
+    from skimage.io import imsave
+    from skimage.transform import resize
+    import numpy as np
+
+    meta = pd.read_csv(meta)
+    print(f"converting and saving images to {out_root_path}")
+    for i in tqdm(range(len(meta))):
+        r = meta.iloc[i]
+        out_path = out_root_path / r.serie_id / (r.filename.split(".")[0] + ".png")
+        if out_path.exists():
+            continue
+
+        out_path.parent.mkdir(exist_ok=True)
+        image = dcmread(dicom_root_path / r.serie_id / r.filename).pixel_array
+        height = int(image.shape[0] * (width / image.shape[1]))
+        image = resize(image, (height, width), preserve_range=True, anti_aliasing=True)
+        image = image.astype(np.uint8)
+
+        imsave(out_path, image)
+
+
 app = typer.Typer()
 app.command(help="Fetch raw data")(fetch_raw_data)
 app.command(help="Merge meta data")(merge_meta_and_annotations)
 app.command(help="Append file names")(build_per_image_meta)
+app.command(help="Convert DICOM images to PNG")(dicom_to_png)

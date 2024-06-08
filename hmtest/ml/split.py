@@ -1,7 +1,8 @@
 from pathlib import Path
-from typing_extensions import Annotated
-import typer
+
 import numpy as np
+import typer
+from typing_extensions import Annotated
 
 
 def split(
@@ -23,8 +24,8 @@ def split(
 
     assert val_size + test_size < 1.0, f"val and test sizes must be < 1"
 
-    from sklearn.model_selection import StratifiedShuffleSplit
     import pandas as pd
+    from sklearn.model_selection import StratifiedShuffleSplit
 
     meta = pd.read_csv(meta_in)
     stratif_cols = stratif_cols.split(",")
@@ -44,7 +45,7 @@ def split(
     strat_label = pd.factorize(strat_label)[0]
 
     splitter = StratifiedShuffleSplit(
-        n_splits=1, test_size=test_size, random_state=seed
+        n_splits=1, test_size=int(test_size * len(meta)), random_state=seed
     )
 
     train_val_idx, test_idx = next(
@@ -52,7 +53,9 @@ def split(
     )
 
     strat_label_train_val = strat_label[train_val_idx]
-    splitter = StratifiedShuffleSplit(n_splits=1, test_size=val_size, random_state=seed)
+    splitter = StratifiedShuffleSplit(
+        n_splits=1, test_size=int(val_size * len(meta)), random_state=seed
+    )
     train_idx, val_idx = next(splitter.split(train_val_idx, strat_label_train_val))
 
     meta["split"] = ""
@@ -65,4 +68,5 @@ def split(
             print(f"--- {split} ---")
             print(g.groupby(stratif_cols).size())
 
-    breakpoint()
+    print(f"saving to {meta_out}")
+    meta.to_csv(meta_out, index=False)
