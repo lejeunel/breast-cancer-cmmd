@@ -1,4 +1,5 @@
 from tqdm import tqdm
+import keras.ops
 from hmtest.ml.callbacks import Batch
 
 
@@ -7,10 +8,17 @@ class Trainer:
     Wrapper class used in training and validation routine
     """
 
-    def __init__(self, model, optimizer, criterion):
+    def __init__(
+        self,
+        model,
+        optimizer,
+        criterion,
+        loss_factors={"diagn_pre": 1, "diagn_post": 1, "abnorm": 1},
+    ):
         self.model = model
         self.optimizer = optimizer
         self.criterion = criterion
+        self.loss_factors = loss_factors
 
         self.epoch = 0
         self.iter = 0
@@ -21,33 +29,39 @@ class Trainer:
 
         import tensorflow as tf
 
-        class_weights = dataloader.get_class_weights()
-
-        breakpoint()
-        for s in (pbar := tqdm(dataloader)):
+        for batch in (pbar := tqdm(dataloader)):
             with tf.GradientTape() as tape:
 
-                images = s["image"]
-                logits = self.model(images, training=True)
+                logits = self.model(batch.images, training=True)
 
-                sample_weights = class_weights[s["target"]]
+                batch.pred_pre_diagn = tf.sigmoid(logits["diagn_pre"])
+                batch.pred_post_diagn = tf.sigmoid(logits["diagn_post"])
+                batch.pred_abnorm = tf.sigmoid(logits["abnorm"])
 
-                loss = self.criterion(s["target"], logits, sample_weight=sample_weights)
+                losses = {}
+                losses["diagn_pre"] = self.criterion(
+                    batch.tgt_diagn, logits["diagn_pre"]
+                )
+                losses["diagn_post"] = self.criterion(
+                    batch.tgt_diagn, logits["diagn_post"]
+                )
+                losses["abnorm"] = self.criterion(batch.tgt_abnorm, logits["abnorm"])
 
-                result = Batch(
-                    s["image"],
-                    tf.math.sigmoid(logits).numpy(),
-                    s["target"][..., None],
-                    loss,
+                total_loss = keras.ops.sum(
+                    [v * losses[k] for k, v in self.loss_factors.items()]
                 )
 
-            gradients = tape.gradient(loss, self.model.trainable_weights)
+            gradients = tape.gradient(total_loss, self.model.trainable_weights)
             self.optimizer.apply_gradients(zip(gradients, self.model.trainable_weights))
 
-            pbar.set_description(f"[train] lss: {loss.numpy().sum():.2e}")
+            pbar.set_description(f"[train] lss: {total_loss.numpy().sum():.2e}")
+
+            batch.loss_pre_diagn = losses["diagn_pre"].numpy()
+            batch.loss_post_diagn = losses["diagn_post"].numpy()
+            batch.loss_abnorm = losses["abnorm"].numpy()
 
             for clbk in post_batch_callbacks:
-                clbk(result, self.iter)
+                clbk(batch, self.iter)
 
             self.iter += 1
 

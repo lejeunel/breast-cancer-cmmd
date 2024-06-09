@@ -5,7 +5,65 @@ import pandas as pd
 import tensorflow as tf
 from skimage.io import imread
 from skimage.transform import resize
-from sklearn.utils.class_weight import compute_class_weight
+from dataclasses import dataclass
+from typing import Optional
+
+
+@dataclass
+class Batch:
+    """Simple container of input/outputs that
+    we pass into model and callbacks"""
+
+    images: list[np.array]
+    meta: pd.DataFrame
+
+    pred_pre_diagn: Optional[list[float]] = None
+    pred_post_diagn: Optional[list[float]] = None
+    pred_abnorm: Optional[list[float]] = None
+
+    tgt_diagn: Optional[list[int]] = None
+    tgt_abnorm: Optional[list[list[int]]] = None
+
+    loss_abnorm: Optional[float] = None
+    loss_pre_diagn: Optional[float] = None
+    loss_post_diagn: Optional[float] = None
+
+
+def _encode_binary_target(
+    meta,
+    in_field="classification",
+    out_field="t_diagn",
+    map_={"Benign": 0, "Malignant": 1},
+):
+    """
+    Encode diagnosis target variable
+    """
+    values = [map_[r[in_field]] for _, r in meta.iterrows()]
+    meta[out_field] = values
+
+    return meta
+
+
+def _encode_multi_target(
+    meta,
+    in_field="abnormality",
+    out_field_prefix="t_abnormality",
+    universal_value="both",
+):
+    """
+    Encode abnormality target with indicator variables using prefix "out_field".
+    Use universal_value to specify which input value corresponds to all other values
+    """
+    values = [v for v in meta[in_field].unique() if v != universal_value]
+    new_cols = [out_field_prefix + "_" + v for v in values]
+
+    for v, c in zip(values, new_cols):
+        meta[c] = 0
+        meta[c] = [1 if r[in_field] == v else 0 for _, r in meta.iterrows()]
+
+    meta.loc[meta[in_field] == universal_value, new_cols] = 1
+
+    return meta
 
 
 class DataLoader(tf.keras.utils.Sequence):
@@ -27,10 +85,8 @@ class DataLoader(tf.keras.utils.Sequence):
         self.meta = pd.read_csv(meta_path)
         self.meta = self.meta.loc[self.meta.split == split].reset_index()
 
-        self.meta = self.meta.loc[~self.meta.classification.isna()]
-        self.meta["target"] = [
-            1 if r.classification == "Malignant" else 0 for _, r in self.meta.iterrows()
-        ]
+        self.meta = _encode_binary_target(self.meta)
+        self.meta = _encode_multi_target(self.meta)
 
         self.root_image_path = root_image_path
         self.n_samples = len(self.meta)
@@ -42,13 +98,6 @@ class DataLoader(tf.keras.utils.Sequence):
 
         np.random.seed(seed)
         self.epoch_batch_indices = self._epoch_batch_indices()
-
-    def get_class_weights(self) -> dict:
-        return compute_class_weight(
-            class_weight="balanced",
-            classes=np.unique(self.meta.target),
-            y=self.meta.target,
-        )
 
     def __len__(self):
         """
@@ -88,8 +137,6 @@ class DataLoader(tf.keras.utils.Sequence):
                 anti_aliasing=True,
             )
 
-        # image = image / 255
-        # image = (image * 2) - 1
         image = image[..., None]
 
         return image
@@ -100,8 +147,9 @@ class DataLoader(tf.keras.utils.Sequence):
         """
 
         images = []
-        targets = []
         metas = []
+        tgt_diagn = []
+        tgt_abnorm = []
         for ind in self.epoch_batch_indices[batch_ind]:
             meta = self.meta.iloc[ind]
             image_path = (
@@ -113,13 +161,17 @@ class DataLoader(tf.keras.utils.Sequence):
             image = self._prepare_image(image_path)
 
             images.append(image)
-            targets.append(meta.target)
+            tgt_diagn.append(meta["t_diagn"])
+            tgt_abnorm.append(meta[[k for k in meta.keys() if "t_abnorm" in k]])
             metas.append(meta)
-        return {
-            "image": np.array(images),
-            "target": np.array(targets),
-            "meta": pd.DataFrame(metas),
-        }
+
+        batch = Batch(
+            images=np.array(images),
+            meta=pd.DataFrame(metas),
+            tgt_diagn=np.array(tgt_diagn)[..., None],
+            tgt_abnorm=np.array(tgt_abnorm),
+        )
+        return batch
 
     def on_epoch_end(self):
         """

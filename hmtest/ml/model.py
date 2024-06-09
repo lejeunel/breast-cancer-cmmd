@@ -1,5 +1,8 @@
 from keras import Model, layers
+from keras.losses import BinaryCrossentropy
 import tensorflow as tf
+import keras.ops
+from hmtest.ml.dataloader import Batch
 
 
 def make_backbone(input_shape: tuple[int], dropout_rate: float):
@@ -58,22 +61,22 @@ class MyCancerClassifier(Model):
 
         self.relu = layers.ReLU()
 
-    def call(self, inputs) -> dict:
-        x = self.backbone(inputs)
+    def call(self, images, *args, **kwargs) -> dict:
+        x = self.backbone(images)
         x = self.global_pool(x)
         x = self.upsampler(x)
         x = self.relu(x)
 
-        logit_cancer_pre = self.cancer_clf(x)
-        logits_abnor = self.abnormality_clf(x)
+        logit_diagn_pre = self.cancer_clf(x)
+        logits_abnorm = self.abnormality_clf(x)
 
-        x_distil = tf.concat([logit_cancer_pre, logits_abnor])
-        x_distil = self.relu(x_distil)
+        merged = keras.ops.concatenate([logit_diagn_pre, logits_abnorm], axis=-1)
+        merged = self.relu(merged)
 
-        logit_cancer_late = self.distil_clf(x_distil)
+        logit_diagn_post = self.distil_clf(merged)
 
         return {
-            "cancer_pre": logit_cancer_pre,
-            "cancer_late": logit_cancer_late,
-            "abnormality": logits_abnor,
+            "diagn_pre": keras.ops.squeeze(logit_diagn_pre)[..., None],
+            "diagn_post": keras.ops.squeeze(logit_diagn_post)[..., None],
+            "abnorm": keras.ops.squeeze(logits_abnorm),
         }

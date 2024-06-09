@@ -66,7 +66,7 @@ def train(
 
     model = MyCancerClassifier(input_shape=(512, 512, 1))
     optim = Adam(learning_rate=learning_rate, weight_decay=weight_decay)
-    criterion = BinaryCrossentropy(from_logits=True)
+    criterion = BinaryCrossentropy(from_logits=True, reduction="sum")
     dataloaders = make_dataloaders(
         image_root_path,
         meta_path,
@@ -78,8 +78,34 @@ def train(
 
     tboard_writer = tf.summary.create_file_writer(str(run_path))
     post_batch_clbks = [
-        BatchLossWriterCallback(tboard_writer),
-        BatchMetricWriterCallback(tboard_writer, weighted_f1_scorer(0.5), "f1"),
+        BatchLossWriterCallback(tboard_writer, "train/loss_abnorm", "loss_abnorm"),
+        BatchLossWriterCallback(
+            tboard_writer, "train/loss_pre_diagn", "loss_pre_diagn"
+        ),
+        BatchLossWriterCallback(
+            tboard_writer, "train/loss_post_diagn", "loss_post_diagn"
+        ),
+        BatchMetricWriterCallback(
+            tboard_writer,
+            weighted_f1_scorer(0.5),
+            "train/f1_pre_diagn",
+            "tgt_diagn",
+            "pred_pre_diagn",
+        ),
+        BatchMetricWriterCallback(
+            tboard_writer,
+            weighted_f1_scorer(0.5),
+            "train/f1_post_diagn",
+            "tgt_diagn",
+            "pred_post_diagn",
+        ),
+        BatchMetricWriterCallback(
+            tboard_writer,
+            weighted_f1_scorer(0.5),
+            "train/f1_abnorm",
+            "tgt_abnorm",
+            "pred_abnorm",
+        ),
     ]
 
     for e in range(n_epochs):
