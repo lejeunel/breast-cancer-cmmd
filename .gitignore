@@ -5,3 +5,4 @@
 /hmtest/ml/__pycache__/
 /hmtest/ml/loss.py
 report/.auctex-auto/**
+**/.DS_Store
