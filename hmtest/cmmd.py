@@ -7,14 +7,15 @@ from tqdm import tqdm
 from typing_extensions import Annotated
 
 IMAGE_DOWNLOAD_URL = r"https://services.cancerimagingarchive.net/nbia-api/services/v1/getImage?SeriesInstanceUID={}"
-DICOM_ORIENTATION_TAG = (0x0020, 0x0020)
+DICOM_PATIENT_ID_TAG = (0x0010, 0x0020)
+DICOM_IMG_LATERALITY_TAG = (0x0020, 0x0062)
 
 
 @dataclass
 class BreastImage:
     serie_id: str
+    patient_id:str
     side: str
-    orientation: str
     filename: str
     abnormality: str = ""
     classification: str = ""
@@ -120,13 +121,12 @@ def merge_meta_and_annotations(meta: Path, annotations: Path, out: Path):
             "Series UID": "serie_id",
             "Study ID": "study_id",
             "Number of Images": "num_images",
-            "LeftRight": "left_right",
+            "LeftRight": "side",
         },
         inplace=True,
     )
 
-    merged.left_right = merged.left_right.replace({"L": "left", "R": "right"})
-    merged.rename(columns={"left_right": "side"}, inplace=True)
+    merged.side = merged.side.replace({"L": "left", "R": "right"})
 
     print(f"saving merge meta-data to {out}")
     merged.to_csv(out, index=False)
@@ -145,12 +145,11 @@ def _traverse_dicom_dirs(dicom_path: Path) -> list[BreastImage]:
     for d in tqdm(scans):
         for f in d.glob("*.dcm"):
             ds = dcmread(f)
-            orientation = ds[*DICOM_ORIENTATION_TAG].value
+            laterality = ds[*DICOM_IMG_LATERALITY_TAG].value
+            patient_id = ds[*DICOM_PATIENT_ID_TAG].value
             image = BreastImage(
-                side="left" if orientation in [["A", "R"], ["A", "FR"]] else "right",
-                orientation=(
-                    "low" if orientation in [["P", "L"], ["P", "FL"]] else "high"
-                ),
+                side="left" if laterality=="L" else "right",
+                patient_id=patient_id,
                 filename=f.name,
                 serie_id=d.name,
             )
@@ -185,6 +184,7 @@ def build_per_image_meta(meta: Path, dicom_root_path: Path, out: Path):
             im.abnormality = meta_.iloc[0].abnormality
             im.classification = meta_.iloc[0].classification
             im.subtype = meta_.iloc[0].subtype
+            im.patient_id = meta_.iloc[0].patient_id
         else:
             n_skipped += 1
 
