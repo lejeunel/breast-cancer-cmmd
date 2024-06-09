@@ -21,12 +21,12 @@ class BreastImage:
     subtype: str = ""
 
 
-def fetch_and_save_one_patient(
+def _fetch_and_save_one_patient(
     series_uid: str, out_dir: Path, i: int = None, total: int = None
 ):
     """
-    Fetch raw DICOM given series_uid from cancerimagingarchive API,
-    and save results as DICOM files
+    Fetch zip archive containing raw DICOM serie given series_uid from
+    cancerimagingarchive API and save results locally
     """
     import io
     import zipfile
@@ -62,7 +62,7 @@ def fetch_raw_data(
             help="output path where DICOM files are saved", exists=True, writable=True
         ),
     ],
-    workers: Annotated[int, typer.Option("-w", help="Number of worker threads")] = 32,
+    n_workers: Annotated[int, typer.Option("-w", help="Number of worker threads")] = 32,
 ):
     """
     Fetch DICOM files from server using provided meta-data and save to disk
@@ -71,24 +71,32 @@ def fetch_raw_data(
 
     meta = pd.read_csv(meta_path)
 
+    assert (
+        "serie_id" in meta.columns
+    ), "provided meta-data file must contain necessary column serie_id"
+
     payloads = [
         [r["serie_id"], out_path / r["serie_id"], i, meta.shape[0]]
         for i, r in meta.iterrows()
     ]
 
-    print(f"meta file contains {len(payloads)} scans")
+    print(f"found {len(payloads)} series")
 
     payloads = [p for p in payloads if not p[1].exists()]
     print(f"{len(payloads)} download(s) remaining ")
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+    if len(payloads) == 0:
+        return
+
+    print(f"fetching files with {n_workers} threads")
+    with concurrent.futures.ThreadPoolExecutor(max_workers=n_workers) as executor:
         future_to_scans = {
-            executor.submit(fetch_and_save_one_patient, *p): p for p in payloads
+            executor.submit(_fetch_and_save_one_patient, *p): p for p in payloads
         }
         for future in concurrent.futures.as_completed(future_to_scans):
-            scan = future_to_scans[future]
+            future_to_scans[future]
             try:
-                data = future.result()
+                future.result()
             except Exception as exc:
                 print("Exception: %s" % (exc))
 
@@ -126,8 +134,8 @@ def merge_meta_and_annotations(meta: Path, annotations: Path, out: Path):
 
 def _traverse_dicom_dirs(dicom_path: Path) -> list[BreastImage]:
     """
-    Walk directory containing dicom files to extract side, angle, and file name for each file.
-    Return a list of BreastImage.
+    Walk directory containing dicom files to extract the following relevant
+    meta-data: side, orientation, and file name for each file.
     """
     from pydicom import dcmread
 

@@ -35,18 +35,18 @@ build-image:
 push-image:
 	$(DOCKER_EXEC) push $(DOCKER_TAGGED_IMAGE)
 
-annotated-patient-meta:
+raw-data:
+	mkdir -p $(DATA_DIR)/dicom
+	$(DOCKER_RUN) $(POETRY_RUN) hmtest/main.py cmmd fetch-raw-data -w 32 /assets/meta.csv /data/dicom
+
+annotated-patient-meta: raw-data
 	$(DOCKER_RUN) $(POETRY_RUN) hmtest/main.py cmmd merge-meta-and-annotations /assets/meta.csv /assets/annotations.csv /data/meta-annotated.csv
 
-raw-data: annotated-patient-meta
-	mkdir -p $(DATA_DIR)/dicom
-	$(DOCKER_RUN) $(POETRY_RUN) hmtest/main.py cmmd fetch-raw-data -w 32 /data/meta-annotated.csv /data/dicom
-
-
-per-image-meta: raw-data
+per-image-meta: annotated-patient-meta
 	$(DOCKER_RUN) $(POETRY_RUN) hmtest/main.py cmmd build-per-image-meta /data/meta-annotated.csv /data/dicom /data/meta-images.csv
 
 png-images: per-image-meta
+	mkdir -p $(DATA_DIR)/png
 	$(DOCKER_RUN) $(POETRY_RUN) hmtest/main.py cmmd dicom-to-png /data/meta-images.csv /data/dicom /data/png
 
 ml-splitted-dataset: png-images

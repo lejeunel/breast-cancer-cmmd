@@ -23,6 +23,7 @@ class Trainer:
 
         class_weights = dataloader.get_class_weights()
 
+        breakpoint()
         for s in (pbar := tqdm(dataloader)):
             with tf.GradientTape() as tape:
 

@@ -56,7 +56,7 @@ def train(
 
     save_to_yaml(run_path / "cfg.yaml", locals())
 
-    from hmtest.ml.model import make_model
+    from hmtest.ml.model import MyCancerClassifier
     from hmtest.ml.trainer import Trainer
     from hmtest.ml.callbacks import BatchLossWriterCallback, BatchMetricWriterCallback
     from hmtest.ml.metrics import weighted_f1_scorer
@@ -64,7 +64,7 @@ def train(
     from keras.losses import BinaryCrossentropy
     import tensorflow as tf
 
-    model = make_model(input_shape=(512, 512, 1))
+    model = MyCancerClassifier(input_shape=(512, 512, 1))
     optim = Adam(learning_rate=learning_rate, weight_decay=weight_decay)
     criterion = BinaryCrossentropy(from_logits=True)
     dataloaders = make_dataloaders(

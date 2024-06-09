@@ -2,3 +2,6 @@
 /assets/.~lock.metadata.csv#
 /data/
 /hmtest/__pycache__/
+/hmtest/ml/__pycache__/
+/hmtest/ml/loss.py
+report/.auctex-auto/**
