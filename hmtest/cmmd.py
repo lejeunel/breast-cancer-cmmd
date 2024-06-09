@@ -200,7 +200,7 @@ def build_per_image_meta(meta: Path, dicom_root_path: Path, out: Path):
 def dicom_to_png(
     meta: Path,
     dicom_root_path: Path,
-    out_root_path: Path,
+    out_root_path: Annotated[Path, typer.Argument(help="output path", exists=True)],
     width: Annotated[int, typer.Option(help="Output width in pixel")] = 512,
 ):
     """
