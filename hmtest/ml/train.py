@@ -20,7 +20,8 @@ def train(
     batch_size: Annotated[int, typer.Option()] = 16,
     learning_rate: Annotated[float, typer.Option()] = 1e-3,
     weight_decay: Annotated[float, typer.Option()] = 0,
-    n_epochs: Annotated[int, typer.Option()] = 200,
+    checkpoint_period: Annotated[int, typer.Option()] = 1,
+    n_epochs: Annotated[int, typer.Option()] = 4,
     seed: Annotated[int, typer.Option()] = 42,
     resume_cp_path: Annotated[
         Optional[Path], typer.Option(help="checkpoint to resume from")
@@ -61,9 +62,11 @@ def train(
         model,
         mode="train",
         checkpoint_root_path=run_path / "checkpoints",
+        checkpoint_period=checkpoint_period,
     )
     val_clbks = make_callbacks(tboard_val_writer, model, mode="val")
 
     for e in range(n_epochs):
         print(f"Epoch {e+1}/{n_epochs}")
         trainer.train_one_epoch(dataloaders["train"], callbacks=train_clbks)
+        trainer.eval_one_epoch(dataloaders["val"], callbacks=val_clbks)

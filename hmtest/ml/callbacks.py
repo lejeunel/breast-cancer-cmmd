@@ -9,7 +9,7 @@ from keras.callbacks import Callback, CallbackList
 class ModelCheckpointCallback(Callback):
     def __init__(self, root_path: Path, model, epoch_period=2):
         self.root_path = root_path
-        self.epoch = 0
+        self.epoch = 1
         self.epoch_period = epoch_period
         self._model = model
 
@@ -17,7 +17,7 @@ class ModelCheckpointCallback(Callback):
 
     def on_epoch_end(self, *args, **kwargs):
 
-        if self.epoch % self.epoch_period:
+        if (self.epoch % self.epoch_period) == 0:
             cp_path = self.root_path / f"ep_{self.epoch:03d}.weights.h5"
             print(f"saving checkpoint to {cp_path}...")
             self._model.save_weights(cp_path)
@@ -69,7 +69,9 @@ class MetricWriterCallback(Callback):
         self.metric_fn.reset_state()
 
 
-def make_callbacks(tboard_writer, model, checkpoint_root_path=None, mode="train"):
+def make_callbacks(
+    tboard_writer, model, checkpoint_root_path=None, checkpoint_period=1, mode="train"
+):
     callbacks = [
         LossWriterCallback(tboard_writer, "loss_abnorm", "loss_abnorm"),
         LossWriterCallback(tboard_writer, "loss_pre_diagn", "loss_pre_diagn"),
@@ -99,7 +101,11 @@ def make_callbacks(tboard_writer, model, checkpoint_root_path=None, mode="train"
 
     if mode == "train":
         callbacks += [
-            ModelCheckpointCallback(root_path=checkpoint_root_path, model=model)
+            ModelCheckpointCallback(
+                root_path=checkpoint_root_path,
+                model=model,
+                epoch_period=checkpoint_period,
+            )
         ]
 
     callbacks = CallbackList(callbacks=callbacks)

@@ -11,8 +11,8 @@ from skimage.transform import resize
 
 @dataclass
 class Batch:
-    """Simple container of input/outputs that
-    we pass into model and callbacks"""
+    """Container of input/outputs that
+    we pass into trainer and callbacks"""
 
     images: list[np.array]
     meta: pd.DataFrame
