@@ -4,6 +4,7 @@ import tensorflow as tf
 from hmtest.ml.dataloader import Batch
 from keras import metrics
 from keras.callbacks import Callback, CallbackList
+import numpy as np
 
 
 class ModelCheckpointCallback(Callback):
@@ -61,9 +62,13 @@ class MetricWriterCallback(Callback):
                 getattr(batch, self.batch_field_true),
                 getattr(batch, self.batch_field_pred),
             )
-            tf.summary.scalar(
-                self.out_field, self.metric_fn.result().numpy()[0], step=batch.iter
-            )
+            scalar = self.metric_fn.result().numpy()
+
+            # TODO: Clean this: not all keras.metrics return the same type...
+            if isinstance(scalar, np.ndarray):
+                scalar = scalar[0]
+
+            tf.summary.scalar(self.out_field, scalar, step=batch.iter)
 
     def on_epoch_end(self, *args, **kwargs):
         self.metric_fn.reset_state()
@@ -96,6 +101,20 @@ def make_callbacks(
             "f1_abnorm",
             "tgt_abnorm",
             "pred_abnorm",
+        ),
+        MetricWriterCallback(
+            tboard_writer,
+            metrics.PrecisionAtRecall(recall=1.0),
+            "precision_at_recall_1_pre",
+            "tgt_diagn",
+            "pred_pre_diagn",
+        ),
+        MetricWriterCallback(
+            tboard_writer,
+            metrics.PrecisionAtRecall(recall=1.0),
+            "precision_at_recall_1_post",
+            "tgt_diagn",
+            "pred_post_diagn",
         ),
     ]
 
