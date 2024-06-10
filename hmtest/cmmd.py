@@ -1,5 +1,6 @@
 import concurrent.futures
 from dataclasses import dataclass
+import pandas as pd
 from pathlib import Path
 
 import typer
@@ -109,7 +110,6 @@ def merge_meta_and_annotations(meta: Path, annotations: Path, out: Path):
     """
     import pandas as pd
 
-    breakpoint()
     meta = pd.read_csv(meta)
     annotations = pd.read_csv(annotations)
     merged = pd.merge(meta, annotations, left_on="Subject ID", right_on="ID1")
@@ -159,14 +159,38 @@ def _traverse_dicom_dirs(dicom_path: Path) -> list[BreastImage]:
     return images
 
 
+def _remove_ambiguous_images(meta: pd.DataFrame) -> pd.DataFrame:
+    """
+    based on the dataset repository
+    the hashes for the pixels of the following seem to be identical.
+    TCIA does not know which is the “more correct” case for the files mentioned:
+    D1-0202 (1-1.dcm image) and D2-0284 (1-1.dcm image)
+    D1-0202 (1-2.dcm image) and D2-0284 (1-2.dcm image)
+    D1-0202 (1-3.dcm image) and D2-0284 (1-3.dcm image)
+    D1-0202 (1-4.dcm image) and D2-0284 (1-4.dcm image)
+    D1-0808 (1-1.dcm image) and D1-1292 (1-1.dcm image)
+
+    We therefore remove those images from the meta-data file
+    """
+    ambiguous = [
+                ("D1-0202", "00000001.dcm"), ("D2-0284", "00000001.dcm"),
+                ("D1-0202", "00000002.dcm"), ("D2-0284", "00000002.dcm"),
+                ("D1-0202", "00000003.dcm"), ("D2-0284", "00000003.dcm"),
+                ("D1-0202", "00000004.dcm"), ("D2-0284", "00000004.dcm"),
+                ("D1-0808", "00000001.dcm"), ("D1-1292", "00000001.dcm")
+                ]
+    ambiguous_cols = meta[["patient_id", "filename"]].apply(tuple, axis=1).isin(ambiguous)
+    meta = meta.loc[~ambiguous_cols].reset_index(drop=True)
+
+    return meta
+
+
 def build_per_image_meta(meta: Path, dicom_root_path: Path, out: Path):
     """
     Traverse DICOM directory and retrieve meta-data (body-side, angle) on each image.
     Then, append corresponding meta-data (annotations, ...).
 
     """
-    import pandas as pd
-
     if out.exists():
         print(f"found file at {out}, quitting")
         return
@@ -194,6 +218,8 @@ def build_per_image_meta(meta: Path, dicom_root_path: Path, out: Path):
 
     print(f"found {len(images)} images with annotations")
     meta_out = pd.DataFrame.from_records([im.__dict__ for im in images])
+    print(f"Removing ambiguous images")
+    meta_out = _remove_ambiguous_images(meta_out)
     print(f"writing meta-data to {out}")
     meta_out.to_csv(out, index=False)
 
