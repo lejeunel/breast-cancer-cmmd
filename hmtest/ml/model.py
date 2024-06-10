@@ -1,25 +1,22 @@
-from keras import Model, layers
-from keras.losses import BinaryCrossentropy
-import tensorflow as tf
 import keras.ops
-from hmtest.ml.dataloader import Batch
+from keras import Model, layers
 
 
 def make_backbone(input_shape: tuple[int], dropout_rate: float):
-    from keras.applications import MobileNetV3Large
+    from keras.applications import MobileNetV3Small
 
-    return MobileNetV3Large(
+    return MobileNetV3Small(
         input_shape=input_shape,
         alpha=1.0,
         dropout_rate=dropout_rate,
-        minimalistic=True,
+        minimalistic=False,
         include_preprocessing=True,
         include_top=False,
         weights=None,
     )
 
 
-class MyCancerClassifier(Model):
+class BreastClassifier(Model):
     def __init__(
         self,
         input_shape: tuple[int],

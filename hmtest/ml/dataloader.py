@@ -1,12 +1,12 @@
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Optional
 
 import numpy as np
 import pandas as pd
 import tensorflow as tf
 from skimage.io import imread
 from skimage.transform import resize
-from dataclasses import dataclass
-from typing import Optional
 
 
 @dataclass
@@ -16,6 +16,8 @@ class Batch:
 
     images: list[np.array]
     meta: pd.DataFrame
+
+    iter: int = 0
 
     pred_pre_diagn: Optional[list[float]] = None
     pred_post_diagn: Optional[list[float]] = None
@@ -180,3 +182,26 @@ class DataLoader(tf.keras.utils.Sequence):
 
         self.sample_indices = np.arange(self.n_samples)
         self.epoch_batch_indices = self._epoch_batch_indices()
+
+
+def make_dataloaders(
+    image_root_path: Path,
+    meta_path: Path,
+    batch_size: int,
+    image_size: int,
+    splits=["train", "val"],
+    seed=42,
+):
+
+    dataloaders = {
+        s: DataLoader(
+            image_root_path,
+            meta_path,
+            split=s,
+            batch_size=batch_size,
+            image_size=image_size,
+        )
+        for s in ["train", "val"]
+    }
+
+    return dataloaders

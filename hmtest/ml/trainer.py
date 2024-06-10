@@ -1,6 +1,6 @@
-from tqdm import tqdm
 import keras.ops
-from hmtest.ml.callbacks import Batch
+import tensorflow as tf
+from tqdm import tqdm
 
 
 class Trainer:
@@ -23,20 +23,16 @@ class Trainer:
         self.epoch = 0
         self.iter = 0
 
-    def train_one_epoch(
-        self, dataloader, post_batch_callbacks=[], post_epoch_callbacks=[]
-    ):
-
-        import tensorflow as tf
+    def train_one_epoch(self, dataloader, callbacks=[]):
 
         for batch in (pbar := tqdm(dataloader)):
             with tf.GradientTape() as tape:
 
                 logits = self.model(batch.images, training=True)
 
-                batch.pred_pre_diagn = tf.sigmoid(logits["diagn_pre"])
-                batch.pred_post_diagn = tf.sigmoid(logits["diagn_post"])
-                batch.pred_abnorm = tf.sigmoid(logits["abnorm"])
+                batch.pred_pre_diagn = keras.ops.sigmoid(logits["diagn_pre"])
+                batch.pred_post_diagn = keras.ops.sigmoid(logits["diagn_post"])
+                batch.pred_abnorm = keras.ops.sigmoid(logits["abnorm"])
 
                 losses = {}
                 losses["diagn_pre"] = self.criterion(
@@ -59,13 +55,12 @@ class Trainer:
             batch.loss_pre_diagn = losses["diagn_pre"].numpy()
             batch.loss_post_diagn = losses["diagn_post"].numpy()
             batch.loss_abnorm = losses["abnorm"].numpy()
+            batch.iter = self.iter
 
-            for clbk in post_batch_callbacks:
-                clbk(batch, self.iter)
+            callbacks.on_batch_end(batch)
 
             self.iter += 1
 
-        for clkb in post_batch_callbacks:
-            clbk.on_epoch_end()
+        callbacks.on_epoch_end(epoch=self.epoch)
 
         self.epoch += 1

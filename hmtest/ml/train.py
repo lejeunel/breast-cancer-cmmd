@@ -1,40 +1,21 @@
+import datetime
 from pathlib import Path
 from typing import Optional
 
 import typer
-import datetime
-from typing_extensions import Annotated
+from hmtest.ml.callbacks import make_callbacks
+from hmtest.ml.dataloader import make_dataloaders
 from hmtest.ml.utils import save_to_yaml
-
-
-def make_dataloaders(
-    image_root_path: Path,
-    meta_path: Path,
-    batch_size: int,
-    image_size: int,
-    splits=["train", "val"],
-    seed=42,
-):
-    from hmtest.ml.dataloader import DataLoader
-
-    dataloaders = {
-        s: DataLoader(
-            image_root_path,
-            meta_path,
-            split=s,
-            batch_size=batch_size,
-            image_size=image_size,
-        )
-        for s in ["train", "val"]
-    }
-
-    return dataloaders
+from typing_extensions import Annotated
 
 
 def train(
     meta_path: Annotated[Path, typer.Argument(help="path to meta-data csv file")],
     image_root_path: Annotated[Path, typer.Argument(help="root path to image files")],
-    out_path: Annotated[Path, typer.Argument(help="output path", exists=True)],
+    out_root_path: Annotated[Path, typer.Argument(help="output path", exists=True)],
+    exp_name: Annotated[
+        str, typer.Argument(help="name of experiment (used for logging)")
+    ],
     image_size: Annotated[int, typer.Option(help="size of input image")] = 512,
     batch_size: Annotated[int, typer.Option()] = 16,
     learning_rate: Annotated[float, typer.Option()] = 1e-3,
@@ -44,27 +25,24 @@ def train(
     resume_cp_path: Annotated[
         Optional[Path], typer.Option(help="checkpoint to resume from")
     ] = None,
-    pretrained: Annotated[Optional[bool], typer.Option()] = True,
 ):
     """
     Training routine.
     """
     current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
 
-    run_path = out_path / current_time
+    run_path = out_root_path / (current_time + "-" + exp_name)
     run_path.mkdir(exist_ok=True)
 
     save_to_yaml(run_path / "cfg.yaml", locals())
 
-    from hmtest.ml.model import MyCancerClassifier
-    from hmtest.ml.trainer import Trainer
-    from hmtest.ml.callbacks import BatchLossWriterCallback, BatchMetricWriterCallback
-    from hmtest.ml.metrics import weighted_f1_scorer
-    from keras.optimizers import Adam
-    from keras.losses import BinaryCrossentropy
     import tensorflow as tf
+    from hmtest.ml.model import BreastClassifier
+    from hmtest.ml.trainer import Trainer
+    from keras.losses import BinaryCrossentropy
+    from keras.optimizers import Adam
 
-    model = MyCancerClassifier(input_shape=(512, 512, 1))
+    model = BreastClassifier(input_shape=(512, 512, 1))
     optim = Adam(learning_rate=learning_rate, weight_decay=weight_decay)
     criterion = BinaryCrossentropy(from_logits=True, reduction="sum")
     dataloaders = make_dataloaders(
@@ -76,40 +54,16 @@ def train(
     )
     trainer = Trainer(model, optim, criterion)
 
-    tboard_writer = tf.summary.create_file_writer(str(run_path))
-    post_batch_clbks = [
-        BatchLossWriterCallback(tboard_writer, "train/loss_abnorm", "loss_abnorm"),
-        BatchLossWriterCallback(
-            tboard_writer, "train/loss_pre_diagn", "loss_pre_diagn"
-        ),
-        BatchLossWriterCallback(
-            tboard_writer, "train/loss_post_diagn", "loss_post_diagn"
-        ),
-        BatchMetricWriterCallback(
-            tboard_writer,
-            weighted_f1_scorer(0.5),
-            "train/f1_pre_diagn",
-            "tgt_diagn",
-            "pred_pre_diagn",
-        ),
-        BatchMetricWriterCallback(
-            tboard_writer,
-            weighted_f1_scorer(0.5),
-            "train/f1_post_diagn",
-            "tgt_diagn",
-            "pred_post_diagn",
-        ),
-        BatchMetricWriterCallback(
-            tboard_writer,
-            weighted_f1_scorer(0.5),
-            "train/f1_abnorm",
-            "tgt_abnorm",
-            "pred_abnorm",
-        ),
-    ]
+    tboard_train_writer = tf.summary.create_file_writer(str(run_path / "log" / "train"))
+    tboard_val_writer = tf.summary.create_file_writer(str(run_path / "log" / "val"))
+    train_clbks = make_callbacks(
+        tboard_train_writer,
+        model,
+        mode="train",
+        checkpoint_root_path=run_path / "checkpoints",
+    )
+    val_clbks = make_callbacks(tboard_val_writer, model, mode="val")
 
     for e in range(n_epochs):
         print(f"Epoch {e+1}/{n_epochs}")
-        trainer.train_one_epoch(
-            dataloaders["train"], post_batch_callbacks=post_batch_clbks
-        )
+        trainer.train_one_epoch(dataloaders["train"], callbacks=train_clbks)
