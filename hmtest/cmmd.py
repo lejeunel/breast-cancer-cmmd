@@ -14,7 +14,7 @@ DICOM_IMG_LATERALITY_TAG = (0x0020, 0x0062)
 @dataclass
 class BreastImage:
     serie_id: str
-    patient_id:str
+    patient_id: str
     side: str
     filename: str
     abnormality: str = ""
@@ -109,6 +109,7 @@ def merge_meta_and_annotations(meta: Path, annotations: Path, out: Path):
     """
     import pandas as pd
 
+    breakpoint()
     meta = pd.read_csv(meta)
     annotations = pd.read_csv(annotations)
     merged = pd.merge(meta, annotations, left_on="Subject ID", right_on="ID1")
@@ -148,7 +149,7 @@ def _traverse_dicom_dirs(dicom_path: Path) -> list[BreastImage]:
             laterality = ds[*DICOM_IMG_LATERALITY_TAG].value
             patient_id = ds[*DICOM_PATIENT_ID_TAG].value
             image = BreastImage(
-                side="left" if laterality=="L" else "right",
+                side="left" if laterality == "L" else "right",
                 patient_id=patient_id,
                 filename=f.name,
                 serie_id=d.name,
@@ -170,11 +171,11 @@ def build_per_image_meta(meta: Path, dicom_root_path: Path, out: Path):
         print(f"found file at {out}, quitting")
         return
 
-    print(f"parsing DICOM directory: {dicom_root_path}...")
-    images = _traverse_dicom_dirs(dicom_root_path)
-
     meta = pd.read_csv(meta)
     meta.subtype = meta.subtype.fillna("")
+
+    print(f"parsing DICOM directory: {dicom_root_path}...")
+    images = _traverse_dicom_dirs(dicom_root_path)
 
     print("building meta-data file...")
     n_skipped = 0

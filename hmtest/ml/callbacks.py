@@ -116,6 +116,20 @@ def make_callbacks(
             "tgt_diagn",
             "pred_post_diagn",
         ),
+        MetricWriterCallback(
+            tboard_writer,
+            metrics.AUC(),
+            "auc_roc_pre",
+            "tgt_diagn",
+            "pred_pre_diagn",
+        ),
+        MetricWriterCallback(
+            tboard_writer,
+            metrics.AUC(),
+            "auc_roc_post",
+            "tgt_diagn",
+            "pred_post_diagn",
+        ),
     ]
 
     if mode == "train":
