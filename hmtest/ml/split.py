@@ -1,8 +1,23 @@
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 import typer
 from typing_extensions import Annotated
+
+
+def _add_breast_id(meta: pd.DataFrame) -> pd.DataFrame:
+    """
+    Creates a column in the meta-data dataframe with a breast-id
+    (combination of patient-id and breast side)
+    """
+    meta["breast_id"] = ""
+    comb_idx = meta.groupby(["patient_id", "side"]).first().index
+    for idx, comb in enumerate(comb_idx.values):
+        same_breast_entries = (meta[["patient_id", "side"]]==comb).all(axis=1)
+        meta.loc[same_breast_entries, "breast_id"] = idx
+
+    return meta
 
 
 def split(
@@ -43,29 +58,31 @@ def split(
     print(f"removing {non_annotated.sum()} rows without values for {stratif_cols}")
     meta = meta.loc[~non_annotated].reset_index(drop=True)
 
-    strat_label = meta[stratif_cols].apply(
-        lambda row: "_".join(row.values.astype(str)), axis=1
-    )
-    strat_label = pd.factorize(strat_label)[0]
+    meta = _add_breast_id(meta)
+    # validate that all images of the same breast have the same labels
+    # meta.groupby("breast_id")[stratif_cols].nunique()
+
+    breast_label_map = meta.groupby("breast_id")[stratif_cols].first()
+    strat_label = pd.factorize(breast_label_map.agg('_'.join, axis=1))[0]
 
     splitter = StratifiedShuffleSplit(
-        n_splits=1, test_size=int(test_size * len(meta)), random_state=seed
+        n_splits=1, test_size=int(test_size * len(breast_label_map)), random_state=seed
     )
-
-    train_val_idx, test_idx = next(
-        splitter.split(X=np.zeros_like(strat_label), y=strat_label)
-    )
+    train_val_idx, test_idx = next(splitter.split(breast_label_map.index, strat_label))
 
     strat_label_train_val = strat_label[train_val_idx]
     splitter = StratifiedShuffleSplit(
-        n_splits=1, test_size=int(val_size * len(meta)), random_state=seed
+        n_splits=1, test_size=int(val_size * len(breast_label_map)), random_state=seed
     )
     train_idx, val_idx = next(splitter.split(train_val_idx, strat_label_train_val))
+    train_idx = train_val_idx[train_idx]
+    val_idx = train_val_idx[val_idx]
 
+    # add and fill new split column to dataframe
     meta["split"] = ""
-    meta.loc[train_idx, "split"] = "train"
-    meta.loc[val_idx, "split"] = "val"
-    meta.loc[test_idx, "split"] = "test"
+    meta.loc[meta.breast_id.isin(train_idx), "split"] = "train"
+    meta.loc[meta.breast_id.isin(val_idx), "split"] = "val"
+    meta.loc[meta.breast_id.isin(test_idx), "split"] = "test"
 
     for split, g in meta.groupby("split"):
         if split:
