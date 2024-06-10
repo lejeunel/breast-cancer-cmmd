@@ -21,7 +21,7 @@ class Batch:
 
     pred_pre_diagn: Optional[list[float]] = None
     pred_post_diagn: Optional[list[float]] = None
-    pred_abnorm: Optional[list[float]] = None
+    pred_abnorm: Optional[list[list[float]]] = None
 
     tgt_diagn: Optional[list[int]] = None
     tgt_abnorm: Optional[list[list[int]]] = None
@@ -38,7 +38,7 @@ def _encode_binary_target(
     map_={"Benign": 0, "Malignant": 1},
 ):
     """
-    Encode diagnosis target variable
+    Encode a categorical variable to binary using mapping.
     """
     values = [map_[r[in_field]] for _, r in meta.iterrows()]
     meta[out_field] = values

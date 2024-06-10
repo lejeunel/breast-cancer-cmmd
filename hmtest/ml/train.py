@@ -18,7 +18,7 @@ def train(
     ],
     image_size: Annotated[int, typer.Option(help="size of input image")] = 512,
     batch_size: Annotated[int, typer.Option()] = 16,
-    learning_rate: Annotated[float, typer.Option()] = 1e-3,
+    learning_rate: Annotated[float, typer.Option()] = 1e-4,
     weight_decay: Annotated[float, typer.Option()] = 0,
     checkpoint_period: Annotated[int, typer.Option()] = 1,
     n_epochs: Annotated[int, typer.Option()] = 4,

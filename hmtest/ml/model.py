@@ -42,32 +42,36 @@ class BreastClassifier(Model):
             name="abnormality_logits",
         )
 
-        self.cancer_clf = layers.Conv2D(
+        self.diagn_clf = layers.Conv2D(
             filters=1,
             kernel_size=1,
             padding="same",
-            name="cancer_logit",
+            name="diagn_logit",
         )
 
         self.distil_clf = layers.Conv2D(
             filters=1,
             kernel_size=1,
             padding="same",
-            name="distil_cancer_logit",
+            name="distil_diagn_logit",
         )
 
         self.relu = layers.ReLU()
+        self.batchnorm_bottleneck = layers.BatchNormalization()
+        self.batchnorm_distil = layers.BatchNormalization()
 
     def call(self, images, *args, **kwargs) -> dict:
         x = self.backbone(images)
         x = self.global_pool(x)
         x = self.upsampler(x)
+        x = self.batchnorm_bottleneck(x)
         x = self.relu(x)
 
-        logit_diagn_pre = self.cancer_clf(x)
+        logit_diagn_pre = self.diagn_clf(x)
         logits_abnorm = self.abnormality_clf(x)
 
         merged = keras.ops.concatenate([logit_diagn_pre, logits_abnorm], axis=-1)
+        merged = self.batchnorm_distil(merged)
         merged = self.relu(merged)
 
         logit_diagn_post = self.distil_clf(merged)
