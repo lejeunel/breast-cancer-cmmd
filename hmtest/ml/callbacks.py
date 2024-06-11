@@ -2,8 +2,8 @@ from pathlib import Path
 
 import tensorflow as tf
 from hmtest.ml.dataloader import Batch
-from keras import metrics
-from keras.callbacks import Callback, CallbackList
+from tensorflow.keras import metrics
+from tensorflow.keras.callbacks import Callback, CallbackList
 import numpy as np
 
 
@@ -79,21 +79,49 @@ def make_callbacks(
 ):
     callbacks = [
         LossWriterCallback(tboard_writer, "loss_abnorm", "loss_abnorm"),
-        LossWriterCallback(tboard_writer, "loss_pre_diagn", "loss_pre_diagn"),
-        LossWriterCallback(tboard_writer, "loss_post_diagn", "loss_post_diagn"),
+        LossWriterCallback(tboard_writer, "loss_pre_type", "loss_pre_type"),
+        LossWriterCallback(tboard_writer, "loss_post_type", "loss_post_type"),
         MetricWriterCallback(
             tboard_writer,
-            metrics.F1Score(threshold=0.5),
-            "f1_pre_diagn",
-            "tgt_diagn",
-            "pred_pre_diagn",
+            metrics.BinaryAccuracy(threshold=0.5),
+            "acc_pre",
+            "tgt_type",
+            "pred_pre_type",
+        ),
+        MetricWriterCallback(
+            tboard_writer,
+            metrics.BinaryAccuracy(threshold=0.5),
+            "acc_post",
+            "tgt_type",
+            "pred_post_type",
+        ),
+        MetricWriterCallback(
+            tboard_writer,
+            metrics.AUC(),
+            "auc_roc_pre",
+            "tgt_type",
+            "pred_pre_type",
+        ),
+        MetricWriterCallback(
+            tboard_writer,
+            metrics.AUC(),
+            "auc_roc_post",
+            "tgt_type",
+            "pred_post_type",
         ),
         MetricWriterCallback(
             tboard_writer,
             metrics.F1Score(threshold=0.5),
-            "f1_post_diagn",
-            "tgt_diagn",
-            "pred_post_diagn",
+            "f1_pre_type",
+            "tgt_type",
+            "pred_pre_type",
+        ),
+        MetricWriterCallback(
+            tboard_writer,
+            metrics.F1Score(threshold=0.5),
+            "f1_post_type",
+            "tgt_type",
+            "pred_post_type",
         ),
         MetricWriterCallback(
             tboard_writer,
@@ -106,29 +134,15 @@ def make_callbacks(
             tboard_writer,
             metrics.PrecisionAtRecall(recall=1.0),
             "precision_at_recall_1_pre",
-            "tgt_diagn",
-            "pred_pre_diagn",
+            "tgt_type",
+            "pred_pre_type",
         ),
         MetricWriterCallback(
             tboard_writer,
             metrics.PrecisionAtRecall(recall=1.0),
             "precision_at_recall_1_post",
-            "tgt_diagn",
-            "pred_post_diagn",
-        ),
-        MetricWriterCallback(
-            tboard_writer,
-            metrics.AUC(),
-            "auc_roc_pre",
-            "tgt_diagn",
-            "pred_pre_diagn",
-        ),
-        MetricWriterCallback(
-            tboard_writer,
-            metrics.AUC(),
-            "auc_roc_post",
-            "tgt_diagn",
-            "pred_post_diagn",
+            "tgt_type",
+            "pred_post_type",
         ),
     ]
 

@@ -1,6 +1,8 @@
-import keras.ops
+import tensorflow.keras.ops
 import tensorflow as tf
 from tqdm import tqdm
+import tensorflow as tf
+import numpy as np
 
 
 class Trainer:
@@ -13,7 +15,7 @@ class Trainer:
         model,
         optimizer,
         criterion,
-        loss_factors={"diagn_pre": 1, "diagn_post": 1, "abnorm": 1},
+        loss_factors={"type_pre": 1, "type_post": 1, "abnorm": 1},
     ):
         self.model = model
         self.optimizer = optimizer
@@ -28,31 +30,41 @@ class Trainer:
     def _forward(self, batch, mode):
         logits = self.model(batch.images, training=True if mode == "train" else False)
 
-        batch.pred_pre_diagn = keras.ops.sigmoid(logits["diagn_pre"])
-        batch.pred_post_diagn = keras.ops.sigmoid(logits["diagn_post"])
-        batch.pred_abnorm = keras.ops.sigmoid(logits["abnorm"])
+        batch.pred_pre_type = tf.keras.ops.sigmoid(logits["type_pre"])
+        batch.pred_post_type = tf.keras.ops.sigmoid(logits["type_post"])
+        batch.pred_abnorm = tf.keras.ops.sigmoid(logits["abnorm"])
 
+        return batch, logits
+
+    def _compute_losses(self, batch, logits, sample_weights):
         losses = {}
-        if mode in ["train", "val"]:
+        losses["type_pre"] = self.criterion(
+            batch.tgt_type, logits["type_pre"], sample_weights
+        )
+        losses["type_post"] = self.criterion(
+            batch.tgt_type, logits["type_post"], sample_weights
+        )
+        losses["abnorm"] = self.criterion(batch.tgt_abnorm, logits["abnorm"])
 
-            losses["diagn_pre"] = self.criterion(batch.tgt_diagn, logits["diagn_pre"])
-            losses["diagn_post"] = self.criterion(batch.tgt_diagn, logits["diagn_post"])
-            losses["abnorm"] = self.criterion(batch.tgt_abnorm, logits["abnorm"])
-
-            batch.loss_pre_diagn = losses["diagn_pre"].numpy()
-            batch.loss_post_diagn = losses["diagn_post"].numpy()
-            batch.loss_abnorm = losses["abnorm"].numpy()
+        batch.loss_pre_type = losses["type_pre"].numpy()
+        batch.loss_post_type = losses["type_post"].numpy()
+        batch.loss_abnorm = losses["abnorm"].numpy()
 
         return batch, losses
 
     def train_one_epoch(self, dataloader, callbacks=[]):
 
+        class_weights = dataloader.get_class_weights()
+
         for batch in (pbar := tqdm(dataloader)):
             with tf.GradientTape() as tape:
 
-                batch, losses = self._forward(batch, mode="train")
+                sample_weights = class_weights[batch.meta.t_type]
 
-                total_loss = keras.ops.sum(
+                batch, logits = self._forward(batch, mode="train")
+                batch, losses = self._compute_losses(batch, logits, sample_weights)
+
+                total_loss = tensorflow.keras.ops.sum(
                     [v * losses[k] for k, v in self.loss_factors.items()]
                 )
 
@@ -76,8 +88,7 @@ class Trainer:
         for batch in (pbar := tqdm(dataloader)):
 
             batch, losses = self._forward(batch, mode="val")
-
-            total_loss = keras.ops.sum(
+            total_loss = tensorflow.keras.ops.sum(
                 [v * losses[k] for k, v in self.loss_factors.items()]
             )
 

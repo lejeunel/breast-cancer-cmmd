@@ -109,7 +109,6 @@ def merge_meta_and_annotations(meta: Path, annotations: Path, out: Path):
     """
     import pandas as pd
 
-    breakpoint()
     meta = pd.read_csv(meta)
     annotations = pd.read_csv(annotations)
     merged = pd.merge(meta, annotations, left_on="Subject ID", right_on="ID1")

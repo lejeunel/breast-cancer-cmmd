@@ -7,6 +7,7 @@ import pandas as pd
 import tensorflow as tf
 from skimage.io import imread
 from skimage.transform import resize
+from sklearn.utils.class_weight import compute_class_weight
 
 
 @dataclass
@@ -19,22 +20,22 @@ class Batch:
 
     iter: int = 0
 
-    pred_pre_diagn: Optional[list[float]] = None
-    pred_post_diagn: Optional[list[float]] = None
+    pred_pre_type: Optional[list[float]] = None
+    pred_post_type: Optional[list[float]] = None
     pred_abnorm: Optional[list[list[float]]] = None
 
-    tgt_diagn: Optional[list[int]] = None
+    tgt_type: Optional[list[int]] = None
     tgt_abnorm: Optional[list[list[int]]] = None
 
     loss_abnorm: Optional[float] = None
-    loss_pre_diagn: Optional[float] = None
-    loss_post_diagn: Optional[float] = None
+    loss_pre_type: Optional[float] = None
+    loss_post_type: Optional[float] = None
 
 
 def _encode_binary_target(
     meta,
     in_field="classification",
-    out_field="t_diagn",
+    out_field="t_type",
     map_={"Benign": 0, "Malignant": 1},
 ):
     """
@@ -101,6 +102,13 @@ class DataLoader(tf.keras.utils.Sequence):
         np.random.seed(seed)
         self.epoch_batch_indices = self._epoch_batch_indices()
 
+    def get_class_weights(self) -> dict:
+        return compute_class_weight(
+            class_weight="balanced",
+            classes=np.unique(self.meta.t_type),
+            y=self.meta.t_type,
+        )
+
     def __len__(self):
         """
         number of batches the generator can produce
@@ -139,7 +147,9 @@ class DataLoader(tf.keras.utils.Sequence):
                 anti_aliasing=True,
             )
 
-        image = image[..., None]
+        image = image[..., None] / 255
+        image = (image * 2) - 1
+        # image = np.ones_like(image)
 
         return image
 
@@ -150,7 +160,7 @@ class DataLoader(tf.keras.utils.Sequence):
 
         images = []
         metas = []
-        tgt_diagn = []
+        tgt_type = []
         tgt_abnorm = []
         for ind in self.epoch_batch_indices[batch_ind]:
             meta = self.meta.iloc[ind]
@@ -163,14 +173,14 @@ class DataLoader(tf.keras.utils.Sequence):
             image = self._prepare_image(image_path)
 
             images.append(image)
-            tgt_diagn.append(meta["t_diagn"])
+            tgt_type.append(meta["t_type"])
             tgt_abnorm.append(meta[[k for k in meta.keys() if "t_abnorm" in k]])
             metas.append(meta)
 
         batch = Batch(
             images=np.array(images),
             meta=pd.DataFrame(metas),
-            tgt_diagn=np.array(tgt_diagn)[..., None],
+            tgt_type=np.array(tgt_type)[..., None],
             tgt_abnorm=np.array(tgt_abnorm),
         )
         return batch
