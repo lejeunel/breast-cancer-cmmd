@@ -46,7 +46,6 @@ python hmtest/main.py --help
 - /Attention-Based Deep Learning System for Classification of Breast Lesions—Multimodal, Weakly Supervised Approach/
 
 ** TODO
-- TODO: Split using ~breast_id~ to avoid leakage between train and test sets.
 - TODO: Perform over-sampling of benignant class as in /A Comparison of Techniques for Class Imbalance in Deep Learning Classification of Breast Cancer/
 - TODO: Explain all steps included in Makefile in README for clarity
 - TODO: Set permission of files generated from docker container. They are now ~root:root~
