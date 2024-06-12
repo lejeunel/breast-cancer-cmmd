@@ -28,7 +28,7 @@ def train(
         int, typer.Option(help="Num of parallel processes in data loader")
     ] = 4,
     learning_rate: Annotated[float, typer.Option()] = 1e-5,
-    weight_decay: Annotated[float, typer.Option()] = 0,
+    weight_decay: Annotated[float, typer.Option()] = 1e-4,
     checkpoint_period: Annotated[int, typer.Option()] = 2,
     n_epochs: Annotated[int, typer.Option()] = 50,
     n_batches_per_epoch: Annotated[int, typer.Option()] = 40,

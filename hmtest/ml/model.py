@@ -3,6 +3,29 @@ import torch
 import torchvision
 
 
+def make_resnet34_feat_extractor() -> tuple[nn.Module, int]:
+    """
+    Replace input layer with a single-channel conv2d,
+    remove the last classification layer,
+    and extract the dimensions of the feature vector
+    """
+    rn = torchvision.models.resnet34()
+    feat_extractor = nn.Sequential(
+        nn.Conv2d(1, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False),
+        rn.bn1,
+        rn.relu,
+        rn.maxpool,
+        rn.layer1,
+        rn.layer2,
+        rn.layer3,
+        rn.layer4,
+        rn.avgpool,
+    )
+    n_features = feat_extractor[-2][-1].conv2.out_channels
+
+    return feat_extractor, n_features
+
+
 def make_resnet18_feat_extractor() -> tuple[nn.Module, int]:
     """
     Replace input layer with a single-channel conv2d,
@@ -35,7 +58,7 @@ class BreastClassifier(nn.Module):
     ):
         super().__init__()
 
-        self.feat_extractor, n_feats = make_resnet18_feat_extractor()
+        self.feat_extractor, n_feats = make_resnet34_feat_extractor()
         self.abnorm_clf = nn.Sequential(
             nn.Linear(n_feats, n_abnormalities - 1),
         )
