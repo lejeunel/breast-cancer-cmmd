@@ -51,6 +51,7 @@ class Trainer:
 
         for batch in (pbar := tqdm(dataloader)):
 
+            batch.to(self.device)
             logits = self.model(batch)
 
             self.optimizer.zero_grad()
@@ -68,7 +69,7 @@ class Trainer:
             batch.set_predictions(logits)
 
             pbar.set_description(
-                f"[train] lss: {total_loss.detach().numpy().sum():.2e}"
+                f"[train] lss: {total_loss.detach().cpu().numpy().sum():.2e}"
             )
 
             batch.iter = self.train_iter
@@ -91,6 +92,7 @@ class Trainer:
 
         for batch in (pbar := tqdm(dataloader)):
 
+            batch.to(self.device)
             logits = self.model(batch)
             losses = self._compute_losses(batch, logits)
 

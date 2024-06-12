@@ -42,6 +42,11 @@ class Batch:
         self.pred_type_post = logits["type_post"].sigmoid().detach()
         self.pred_abnorm = logits["abnorm"].sigmoid().detach()
 
+    def to(self, device):
+        self.tgt_type = self.tgt_type.to(device)
+        self.tgt_abnorm = self.tgt_abnorm.to(device)
+        self.images = self.images.to(device)
+
 
 def _encode_binary_target(
     meta,

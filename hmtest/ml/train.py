@@ -33,6 +33,7 @@ def train(
     n_epochs: Annotated[int, typer.Option()] = 50,
     n_batches_per_epoch: Annotated[int, typer.Option()] = 40,
     seed: Annotated[int, typer.Option()] = 42,
+    cuda: Annotated[Optional[bool], typer.Option(help="use GPU")] = True,
     resume_cp_path: Annotated[
         Optional[Path], typer.Option(help="checkpoint to resume from")
     ] = None,
@@ -58,12 +59,13 @@ def train(
         n_workers=n_workers,
     )
 
-    model = BreastClassifier()
+    device = torch.device("cuda") if cuda else torch.device("cpu")
+    model = BreastClassifier().to(device)
 
     optim = Adam(params=model.parameters(), lr=learning_rate, weight_decay=weight_decay)
     criterion = BCEWithLogitsLoss(reduction="none")
 
-    trainer = Trainer(model, optim, criterion)
+    trainer = Trainer(model, optim, criterion, device=device)
 
     tboard_train_writer = SummaryWriter(str(run_path / "log" / "train"))
     tboard_val_writer = SummaryWriter(str(run_path / "log" / "val"))
