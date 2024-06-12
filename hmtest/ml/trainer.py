@@ -1,8 +1,6 @@
-import tensorflow.keras.ops
-import tensorflow as tf
 from tqdm import tqdm
-import tensorflow as tf
-import numpy as np
+import torch
+from torchvision.ops import sigmoid_focal_loss
 
 
 class Trainer:
@@ -15,10 +13,12 @@ class Trainer:
         model,
         optimizer,
         criterion,
-        loss_factors={"type_pre": 1, "type_post": 1, "abnorm": 1},
+        loss_factors={"type": 1, "type_post": 0, "abnorm": 0},
+        device=torch.device("cpu"),
     ):
         self.model = model
         self.optimizer = optimizer
+        self.device = device
         self.criterion = criterion
         self.loss_factors = loss_factors
 
@@ -27,79 +27,86 @@ class Trainer:
         self.val_epoch = 1
         self.val_iter = 0
 
-    def _forward(self, batch, mode):
-        logits = self.model(batch.images, training=True if mode == "train" else False)
+    def _weigh_type_loss(self, loss, target, freq_pos=0.7):
+        loss[target == 1] = loss[target == 1] / freq_pos
+        loss[target == 0] = loss[target == 0] / (1 - freq_pos)
+        return loss
 
-        batch.pred_pre_type = tf.keras.ops.sigmoid(logits["type_pre"])
-        batch.pred_post_type = tf.keras.ops.sigmoid(logits["type_post"])
-        batch.pred_abnorm = tf.keras.ops.sigmoid(logits["abnorm"])
-
-        return batch, logits
-
-    def _compute_losses(self, batch, logits, sample_weights):
+    def _compute_losses(self, batch, logits):
         losses = {}
-        losses["type_pre"] = self.criterion(
-            batch.tgt_type, logits["type_pre"], sample_weights
-        )
-        losses["type_post"] = self.criterion(
-            batch.tgt_type, logits["type_post"], sample_weights
-        )
-        losses["abnorm"] = self.criterion(batch.tgt_abnorm, logits["abnorm"])
+        losses["type"] = self.criterion(logits["type"], batch.tgt_type)
+        losses["type"] = losses["type"].mean()
 
-        batch.loss_pre_type = losses["type_pre"].numpy()
-        batch.loss_post_type = losses["type_post"].numpy()
-        batch.loss_abnorm = losses["abnorm"].numpy()
+        losses["type_post"] = self.criterion(logits["type_post"], batch.tgt_type)
+        losses["type_post"] = losses["type_post"].mean()
 
-        return batch, losses
+        losses["abnorm"] = self.criterion(logits["abnorm"], batch.tgt_abnorm).mean()
+
+        return losses
 
     def train_one_epoch(self, dataloader, callbacks=[]):
 
-        class_weights = dataloader.get_class_weights()
+        self.model.train()
+        self.model.to(self.device)
 
         for batch in (pbar := tqdm(dataloader)):
-            with tf.GradientTape() as tape:
 
-                sample_weights = class_weights[batch.meta.t_type]
+            logits = self.model(batch)
 
-                batch, logits = self._forward(batch, mode="train")
-                batch, losses = self._compute_losses(batch, logits, sample_weights)
+            self.optimizer.zero_grad()
+            losses = self._compute_losses(batch, logits)
 
-                total_loss = tensorflow.keras.ops.sum(
-                    [v * losses[k] for k, v in self.loss_factors.items()]
-                )
+            total_loss = 0
+            for k, v in self.loss_factors.items():
+                losses[k] = v * losses[k]
+                total_loss += losses[k]
 
-            gradients = tape.gradient(total_loss, self.model.trainable_weights)
-            self.optimizer.apply_gradients(zip(gradients, self.model.trainable_weights))
+            total_loss.backward()
+            self.optimizer.step()
 
-            pbar.set_description(f"[train] lss: {total_loss.numpy().sum():.2e}")
+            batch.set_losses(losses)
+            batch.set_predictions(logits)
+
+            pbar.set_description(
+                f"[train] lss: {total_loss.detach().numpy().sum():.2e}"
+            )
 
             batch.iter = self.train_iter
 
-            callbacks.on_batch_end(batch)
+            for clbk in callbacks:
+                clbk.on_batch_end(batch)
 
             self.train_iter += 1
 
-        callbacks.on_epoch_end(epoch=self.train_epoch)
+        for clbk in callbacks:
+            clbk.on_epoch_end(epoch=self.train_epoch)
 
         self.train_epoch += 1
 
-    def eval_one_epoch(self, dataloader, callbacks=[]):
+    @torch.no_grad
+    def eval(self, dataloader, callbacks=[]):
+
+        self.model.eval()
+        self.model.to(self.device)
 
         for batch in (pbar := tqdm(dataloader)):
 
-            batch, losses = self._forward(batch, mode="val")
-            total_loss = tensorflow.keras.ops.sum(
-                [v * losses[k] for k, v in self.loss_factors.items()]
-            )
+            logits = self.model(batch)
+            losses = self._compute_losses(batch, logits)
 
-            pbar.set_description(f"[val] lss: {total_loss.numpy().sum():.2e}")
+            batch.set_losses(losses)
+            batch.set_predictions(logits)
+
+            pbar.set_description("[val]")
 
             batch.iter = self.val_iter
 
-            callbacks.on_batch_end(batch)
+            for clbk in callbacks:
+                clbk.on_batch_end(batch)
 
             self.val_iter += 1
 
-        callbacks.on_epoch_end(epoch=self.val_epoch)
+        for clbk in callbacks:
+            clbk.on_epoch_end(epoch=self.val_epoch)
 
         self.val_epoch += 1

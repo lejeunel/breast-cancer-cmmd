@@ -146,8 +146,8 @@ def _traverse_dicom_dirs(dicom_path: Path) -> list[BreastImage]:
     for d in tqdm(scans):
         for f in d.glob("*.dcm"):
             ds = dcmread(f)
-            laterality = ds[*DICOM_IMG_LATERALITY_TAG].value
-            patient_id = ds[*DICOM_PATIENT_ID_TAG].value
+            laterality = ds[DICOM_IMG_LATERALITY_TAG].value
+            patient_id = ds[DICOM_PATIENT_ID_TAG].value
             image = BreastImage(
                 side="left" if laterality == "L" else "right",
                 patient_id=patient_id,
@@ -173,13 +173,20 @@ def _remove_ambiguous_images(meta: pd.DataFrame) -> pd.DataFrame:
     We therefore remove those images from the meta-data file
     """
     ambiguous = [
-                ("D1-0202", "00000001.dcm"), ("D2-0284", "00000001.dcm"),
-                ("D1-0202", "00000002.dcm"), ("D2-0284", "00000002.dcm"),
-                ("D1-0202", "00000003.dcm"), ("D2-0284", "00000003.dcm"),
-                ("D1-0202", "00000004.dcm"), ("D2-0284", "00000004.dcm"),
-                ("D1-0808", "00000001.dcm"), ("D1-1292", "00000001.dcm")
-                ]
-    ambiguous_cols = meta[["patient_id", "filename"]].apply(tuple, axis=1).isin(ambiguous)
+        ("D1-0202", "00000001.dcm"),
+        ("D2-0284", "00000001.dcm"),
+        ("D1-0202", "00000002.dcm"),
+        ("D2-0284", "00000002.dcm"),
+        ("D1-0202", "00000003.dcm"),
+        ("D2-0284", "00000003.dcm"),
+        ("D1-0202", "00000004.dcm"),
+        ("D2-0284", "00000004.dcm"),
+        ("D1-0808", "00000001.dcm"),
+        ("D1-1292", "00000001.dcm"),
+    ]
+    ambiguous_cols = (
+        meta[["patient_id", "filename"]].apply(tuple, axis=1).isin(ambiguous)
+    )
     meta = meta.loc[~ambiguous_cols].reset_index(drop=True)
 
     return meta

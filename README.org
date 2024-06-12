@@ -40,6 +40,19 @@ python hmtest/main.py --help
 
 * Notes
 
+** Preprocessing as described in Walsh et. al 2023
+- Triangle thresholding method
+- https://scikit-image.org/docs/stable/auto_examples/segmentation/plot_label.html
+- Flip images of right breasts so that all breasts are located at the left side of
+        the images.
+- The height is cropped to the size of the breast, and re-sized to 2048 pixels.
+- The aspect ratio is maintained between the height and width, but the right side of the
+        image was padded with zero-intensity pixels to give a square 2048 × 2048 image.
+- We applied histogram normalisation to the pixels’ intensities, enhancing the contrast of the
+images, and we scaled the values to the range ∈ [0, 1].
+
+
+
 ** Baselines:
 - /A Comparison of Techniques for Class Imbalance in Deep Learning Classification of Breast Cancer/
 - /Deep Learning in Breast Cancer Imaging: A Decade of Progress and Future Directions/

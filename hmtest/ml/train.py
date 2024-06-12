@@ -6,8 +6,13 @@ import typer
 from hmtest.ml.callbacks import make_callbacks
 from hmtest.ml.dataloader import make_dataloaders
 from hmtest.ml.utils import save_to_yaml
-from hmtest.ml.model import make_model
+from hmtest.ml.model import BreastClassifier
 from typing_extensions import Annotated
+from hmtest.ml.trainer import Trainer
+from torch.nn import BCEWithLogitsLoss
+from torch.optim import Adam
+from torch.utils.tensorboard import SummaryWriter
+import torch
 
 
 def train(
@@ -19,21 +24,24 @@ def train(
     ],
     image_size: Annotated[int, typer.Option(help="size of input image")] = 512,
     batch_size: Annotated[int, typer.Option()] = 16,
-    learning_rate: Annotated[float, typer.Option()] = 1e-2,
-    weight_decay: Annotated[float, typer.Option()] = 1e-6,
-    checkpoint_period: Annotated[int, typer.Option()] = 1,
-    n_epochs: Annotated[int, typer.Option()] = 4,
+    n_workers: Annotated[
+        int, typer.Option(help="Num of parallel processes in data loader")
+    ] = 4,
+    learning_rate: Annotated[float, typer.Option()] = 1e-5,
+    weight_decay: Annotated[float, typer.Option()] = 0,
+    checkpoint_period: Annotated[int, typer.Option()] = 2,
+    n_epochs: Annotated[int, typer.Option()] = 50,
+    n_batches_per_epoch: Annotated[int, typer.Option()] = 40,
     seed: Annotated[int, typer.Option()] = 42,
     resume_cp_path: Annotated[
         Optional[Path], typer.Option(help="checkpoint to resume from")
     ] = None,
-    eager: Annotated[
-        bool, typer.Option("-e", "--eager", help="Set eager execution for debugging")
-    ] = False,
 ):
     """
     Training routine.
     """
+
+    torch.manual_seed(seed)
     current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
 
     run_path = out_root_path / (current_time + "-" + exp_name)
@@ -41,42 +49,35 @@ def train(
 
     save_to_yaml(run_path / "cfg.yaml", locals())
 
-    import tensorflow as tf
-    from hmtest.ml.trainer import Trainer
-    from tensorflow.keras.losses import BinaryCrossentropy
-    from tensorflow.keras.optimizers import Adam
-
-    tf.config.run_functions_eagerly(eager)
-
-    input_shape = (image_size, image_size, 1)
-    model = make_model(input_shape=input_shape)
-
-    optim = Adam(learning_rate=learning_rate, weight_decay=weight_decay)
-    criterion = BinaryCrossentropy(from_logits=True, reduction="sum")
     dataloaders = make_dataloaders(
         image_root_path,
         meta_path,
         image_size=image_size,
         batch_size=batch_size,
-        seed=seed,
+        n_batches_per_epoch=n_batches_per_epoch,
+        n_workers=n_workers,
     )
+
+    model = BreastClassifier()
+
+    optim = Adam(params=model.parameters(), lr=learning_rate, weight_decay=weight_decay)
+    criterion = BCEWithLogitsLoss(reduction="none")
+
     trainer = Trainer(model, optim, criterion)
 
-    model.compile(run_eagerly=True)
-
-    tboard_train_writer = tf.summary.create_file_writer(str(run_path / "log" / "train"))
-    tboard_val_writer = tf.summary.create_file_writer(str(run_path / "log" / "val"))
+    tboard_train_writer = SummaryWriter(str(run_path / "log" / "train"))
+    tboard_val_writer = SummaryWriter(str(run_path / "log" / "val"))
     train_clbks = make_callbacks(
         tboard_train_writer,
-        model,
+        model=model,
+        optimizer=optim,
         mode="train",
         checkpoint_root_path=run_path / "checkpoints",
         checkpoint_period=checkpoint_period,
     )
-    val_clbks = make_callbacks(tboard_val_writer, model, mode="val")
+    val_clbks = make_callbacks(tboard_val_writer, mode="val")
 
     for e in range(n_epochs):
         print(f"Epoch {e+1}/{n_epochs}")
         trainer.train_one_epoch(dataloaders["train"], callbacks=train_clbks)
-
-        trainer.eval_one_epoch(dataloaders["val"], callbacks=val_clbks)
+        trainer.eval(dataloaders["val"], callbacks=val_clbks)

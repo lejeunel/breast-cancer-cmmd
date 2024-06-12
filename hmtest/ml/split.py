@@ -1,6 +1,5 @@
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 import typer
 from typing_extensions import Annotated
@@ -14,7 +13,7 @@ def _add_breast_id(meta: pd.DataFrame) -> pd.DataFrame:
     meta["breast_id"] = ""
     comb_idx = meta.groupby(["patient_id", "side"]).first().index
     for idx, comb in enumerate(comb_idx.values):
-        same_breast_entries = (meta[["patient_id", "side"]]==comb).all(axis=1)
+        same_breast_entries = (meta[["patient_id", "side"]] == comb).all(axis=1)
         meta.loc[same_breast_entries, "breast_id"] = idx
 
     return meta
@@ -63,7 +62,7 @@ def split(
     # meta.groupby("breast_id")[stratif_cols].nunique()
 
     breast_label_map = meta.groupby("breast_id")[stratif_cols].first()
-    strat_label = pd.factorize(breast_label_map.agg('_'.join, axis=1))[0]
+    strat_label = pd.factorize(breast_label_map.agg("_".join, axis=1))[0]
 
     splitter = StratifiedShuffleSplit(
         n_splits=1, test_size=int(test_size * len(breast_label_map)), random_state=seed

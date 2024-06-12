@@ -4,10 +4,11 @@ from typing import Optional
 
 import numpy as np
 import pandas as pd
-import tensorflow as tf
 from skimage.io import imread
 from skimage.transform import resize
-from sklearn.utils.class_weight import compute_class_weight
+from torch.utils.data import Dataset, DataLoader, RandomSampler
+import torch
+from hmtest.ml import image_preprocessing as impp
 
 
 @dataclass
@@ -20,16 +21,26 @@ class Batch:
 
     iter: int = 0
 
-    pred_pre_type: Optional[list[float]] = None
-    pred_post_type: Optional[list[float]] = None
+    pred_type: Optional[list[float]] = None
+    pred_type_post: Optional[list[float]] = None
     pred_abnorm: Optional[list[list[float]]] = None
 
     tgt_type: Optional[list[int]] = None
     tgt_abnorm: Optional[list[list[int]]] = None
 
     loss_abnorm: Optional[float] = None
-    loss_pre_type: Optional[float] = None
-    loss_post_type: Optional[float] = None
+    loss_type: Optional[float] = None
+    loss_type_post: Optional[float] = None
+
+    def set_losses(self, losses: dict[torch.Tensor]):
+        self.loss_type = losses["type"].detach()
+        self.loss_type_post = losses["type_post"].detach()
+        self.loss_abnorm = losses["abnorm"].detach()
+
+    def set_predictions(self, logits: dict[torch.Tensor]):
+        self.pred_type = logits["type"].sigmoid().detach()
+        self.pred_type_post = logits["type_post"].sigmoid().detach()
+        self.pred_abnorm = logits["abnorm"].sigmoid().detach()
 
 
 def _encode_binary_target(
@@ -69,7 +80,7 @@ def _encode_multi_target(
     return meta
 
 
-class DataLoader(tf.keras.utils.Sequence):
+class BreastDataset(Dataset):
     """ """
 
     def __init__(
@@ -77,10 +88,8 @@ class DataLoader(tf.keras.utils.Sequence):
         root_image_path: Path,
         meta_path: Path,
         split: str,
-        batch_size: int = 1,
         image_size: int = 512,
-        shuffle: bool = True,
-        seed: int = 42,
+        return_orig_image=False,
     ):
         """ """
 
@@ -93,48 +102,16 @@ class DataLoader(tf.keras.utils.Sequence):
 
         self.root_image_path = root_image_path
         self.n_samples = len(self.meta)
-        self.batch_size = batch_size
         self.image_size = image_size
-        self.shuffle = shuffle
-        self.sample_indices = np.arange(self.n_samples)
-        self.n_batches = self.n_samples // self.batch_size
 
-        np.random.seed(seed)
-        self.epoch_batch_indices = self._epoch_batch_indices()
-
-    def get_class_weights(self) -> dict:
-        return compute_class_weight(
-            class_weight="balanced",
-            classes=np.unique(self.meta.t_type),
-            y=self.meta.t_type,
-        )
+        self.return_orig_image = return_orig_image
 
     def __len__(self):
-        """
-        number of batches the generator can produce
-        """
-        return len(self.meta) // self.batch_size
+        return len(self.meta)
 
-    def _epoch_batch_indices(self):
+    def _read_and_resize_image(self, image_path):
         """
-        returns a n_batches x batch_size array with the indices for each
-        batch for an epoch
-        """
-
-        if self.shuffle:
-            np.random.shuffle(self.sample_indices)
-
-        epoch_indices = self.sample_indices[: self.n_batches * self.batch_size]
-        epoch_batch_indices = np.reshape(
-            epoch_indices, (self.n_batches, self.batch_size)
-        )
-
-        return epoch_batch_indices
-
-    def _prepare_image(self, image_path):
-        """
-        Reads an image from disk and transform it prior
-        to feeding to batch
+        Reads an image from disk and resize it
         """
 
         image = imread(image_path)
@@ -147,51 +124,88 @@ class DataLoader(tf.keras.utils.Sequence):
                 anti_aliasing=True,
             )
 
-        image = image[..., None] / 255
-        image = (image * 2) - 1
-        # image = np.ones_like(image)
+        return image.astype(np.uint8)
+
+    def _preprocess_image(self, image: np.ndarray, is_left: bool):
+        """
+        1. Clean background noise
+        2. Vertical mirroring to make all breast located on left side of frame
+        3. Crop height to breast
+        4. Resize to original size
+        """
+
+        orig_size = image.shape
+
+        # Clean background noise
+        mask = impp.triangle_thresholding(image)
+        image[mask == 0] = 0
+
+        # mirroring
+        if not is_left:
+            image = image[:, ::-1]
+
+        # Crop height to breast
+        n_pixels = mask.sum(axis=0)
+        max_col_idx = np.argmax(n_pixels)
+        max_col = mask[:, max_col_idx]
+        nz_rows = np.where(max_col)[0]
+        first_nz_row, last_nz_row = nz_rows[0], nz_rows[-1]
+        image = image[first_nz_row : last_nz_row + 1, :]
+
+        # resize to original size
+        image = resize(
+            image, orig_size, preserve_range=True, anti_aliasing=True
+        ).astype(np.uint8)
 
         return image
 
-    def __getitem__(self, batch_ind):
-        """
-        generates a batch of data
-        """
+    def get_ratio(self, field="t_type"):
+        n_pos = (self.meta[field] == 1).sum()
+        return n_pos / len(self.meta)
 
-        images = []
-        metas = []
-        tgt_type = []
-        tgt_abnorm = []
-        for ind in self.epoch_batch_indices[batch_ind]:
-            meta = self.meta.iloc[ind]
-            image_path = (
-                self.root_image_path
-                / meta.serie_id
-                / (meta.filename.split(".")[0] + ".png")
-            )
+    def __getitem__(self, i):
 
-            image = self._prepare_image(image_path)
-
-            images.append(image)
-            tgt_type.append(meta["t_type"])
-            tgt_abnorm.append(meta[[k for k in meta.keys() if "t_abnorm" in k]])
-            metas.append(meta)
-
-        batch = Batch(
-            images=np.array(images),
-            meta=pd.DataFrame(metas),
-            tgt_type=np.array(tgt_type)[..., None],
-            tgt_abnorm=np.array(tgt_abnorm),
+        meta = self.meta.iloc[i]
+        image_path = (
+            Path(self.root_image_path)
+            / meta.serie_id
+            / (meta.filename.split(".")[0] + ".png")
         )
-        return batch
 
-    def on_epoch_end(self):
+        orig_image = self._read_and_resize_image(image_path)[..., None]
+        image = self._preprocess_image(orig_image.copy(), meta.side == "left")
+
+        res = {"image": image, "meta": meta}
+
+        if self.return_orig_image:
+            res.update({"orig_image": orig_image})
+
+        return res
+
+    @staticmethod
+    def collate_fn(samples: list[dict]):
         """
-        maybe reshuffle after epoch
+        convert list of samples obtained through __getitem__ to
+        pytorch tensors
         """
 
-        self.sample_indices = np.arange(self.n_samples)
-        self.epoch_batch_indices = self._epoch_batch_indices()
+        meta = pd.DataFrame([s["meta"] for s in samples])
+        images = torch.tensor(
+            np.stack([np.moveaxis(s["image"], 2, 0) for s in samples])
+        ).float()
+
+        t_type = torch.tensor(meta["t_type"].values)[..., None]
+
+        t_abnorm = torch.tensor(meta["t_abnormality_calcification"].values)[..., None]
+
+        return Batch(
+            **{
+                "meta": pd.DataFrame([s["meta"] for s in samples]),
+                "images": images,
+                "tgt_type": t_type.float(),
+                "tgt_abnorm": t_abnorm.float(),
+            }
+        )
 
 
 def make_dataloaders(
@@ -199,19 +213,59 @@ def make_dataloaders(
     meta_path: Path,
     batch_size: int,
     image_size: int,
-    splits=["train", "val"],
-    seed=42,
+    n_workers: int = 8,
+    n_batches_per_epoch=30,
 ):
 
-    dataloaders = {
-        s: DataLoader(
+    splits = ["train", "val", "test"]
+
+    datasets = {
+        s: BreastDataset(
             image_root_path,
             meta_path,
             split=s,
-            batch_size=batch_size,
             image_size=image_size,
         )
-        for s in ["train", "val"]
+        for s in splits
+    }
+
+    dataloaders = {
+        s: DataLoader(
+            d,
+            batch_size=batch_size,
+            num_workers=n_workers,
+            collate_fn=BreastDataset.collate_fn,
+            sampler=(
+                RandomSampler(d, num_samples=n_batches_per_epoch * batch_size)
+                if s == "train"
+                else None
+            ),
+        )
+        for s, d in datasets.items()
     }
 
     return dataloaders
+
+
+if __name__ == "__main__":
+    import matplotlib.pyplot as plt
+
+    dset = BreastDataset(
+        "data/png",
+        meta_path="data/meta-images-split.csv",
+        split="train",
+        image_size=512,
+        return_orig_image=True,
+    )
+
+    to_plot = [16, 0]
+    fig, axes = plt.subplots(nrows=len(to_plot), ncols=2)
+
+    for row, s_idx in enumerate(to_plot):
+        sample = dset[s_idx]
+        print(sample["meta"])
+        axes[row][0].title.set_text("Original")
+        axes[row][0].imshow(sample["orig_image"])
+        axes[row][1].title.set_text("Preprocessed")
+        axes[row][1].imshow(sample["image"])
+    plt.show()
