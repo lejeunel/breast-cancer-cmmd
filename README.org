@@ -40,6 +40,8 @@ python hmtest/main.py --help
 
 * Notes
 
+https://stackoverflow.com/questions/25185405/using-gpu-from-a-docker-container
+
 ** Preprocessing as described in Walsh et. al 2023
 - Triangle thresholding method
 - https://scikit-image.org/docs/stable/auto_examples/segmentation/plot_label.html
@@ -51,6 +53,12 @@ python hmtest/main.py --help
 - We applied histogram normalisation to the pixels’ intensities, enhancing the contrast of the
 images, and we scaled the values to the range ∈ [0, 1].
 
+
+** Methods
+- /Multi-view classification with convolutional neural networks/
+- /High-Resolution Breast Cancer Screening with Multi-View Deep Convolutional Neural Networks/
+  - Architecture tailored for high resolution (downsampling hurts!)
+  - Average features of each view before last fully-connected layer
 
 
 ** Baselines:

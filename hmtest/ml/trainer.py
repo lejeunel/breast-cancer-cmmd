@@ -1,6 +1,5 @@
-from tqdm import tqdm
 import torch
-from torchvision.ops import sigmoid_focal_loss
+from tqdm import tqdm
 
 
 class Trainer:
@@ -13,7 +12,7 @@ class Trainer:
         model,
         optimizer,
         criterion,
-        loss_factors={"type": 1, "type_post": 0, "abnorm": 0},
+        loss_factors={"type": 1, "type_post": 0, "abnorm": 1},
         device=torch.device("cpu"),
     ):
         self.model = model
@@ -32,15 +31,17 @@ class Trainer:
         loss[target == 0] = loss[target == 0] / (1 - freq_pos)
         return loss
 
-    def _compute_losses(self, batch, logits):
+    def _compute_losses(self, batch, predictions):
         losses = {}
-        losses["type"] = self.criterion(logits["type"], batch.tgt_type)
+        losses["type"] = self.criterion(predictions["type"], batch.tgt_type)
         losses["type"] = losses["type"].mean()
 
-        losses["type_post"] = self.criterion(logits["type_post"], batch.tgt_type)
+        losses["type_post"] = self.criterion(predictions["type_post"], batch.tgt_type)
         losses["type_post"] = losses["type_post"].mean()
 
-        losses["abnorm"] = self.criterion(logits["abnorm"], batch.tgt_abnorm).mean()
+        losses["abnorm"] = self.criterion(
+            predictions["abnorm"], batch.tgt_abnorm
+        ).mean()
 
         return losses
 
@@ -50,12 +51,13 @@ class Trainer:
         self.model.to(self.device)
 
         for batch in (pbar := tqdm(dataloader)):
-
             batch.to(self.device)
-            logits = self.model(batch)
 
             self.optimizer.zero_grad()
-            losses = self._compute_losses(batch, logits)
+
+            predictions = self.model(batch)
+
+            losses = self._compute_losses(batch, predictions)
 
             total_loss = 0
             for k, v in self.loss_factors.items():
@@ -66,7 +68,7 @@ class Trainer:
             self.optimizer.step()
 
             batch.set_losses(losses)
-            batch.set_predictions(logits)
+            batch.set_predictions(predictions)
 
             pbar.set_description(
                 f"[train] lss: {total_loss.detach().cpu().numpy().sum():.2e}"
@@ -93,11 +95,11 @@ class Trainer:
         for batch in (pbar := tqdm(dataloader)):
 
             batch.to(self.device)
-            logits = self.model(batch)
-            losses = self._compute_losses(batch, logits)
+            predictions = self.model(batch)
+            losses = self._compute_losses(batch, predictions)
 
             batch.set_losses(losses)
-            batch.set_predictions(logits)
+            batch.set_predictions(predictions)
 
             pbar.set_description("[val]")
 

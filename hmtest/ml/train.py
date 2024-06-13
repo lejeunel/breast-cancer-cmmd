@@ -9,10 +9,11 @@ from hmtest.ml.utils import save_to_yaml
 from hmtest.ml.model import BreastClassifier
 from typing_extensions import Annotated
 from hmtest.ml.trainer import Trainer
-from torch.nn import BCEWithLogitsLoss
+from torch.nn import BCELoss
 from torch.optim import Adam
 from torch.utils.tensorboard import SummaryWriter
 import torch
+import matplotlib
 
 
 def train(
@@ -22,16 +23,16 @@ def train(
     exp_name: Annotated[
         str, typer.Argument(help="name of experiment (used for logging)")
     ],
-    image_size: Annotated[int, typer.Option(help="size of input image")] = 512,
-    batch_size: Annotated[int, typer.Option()] = 16,
+    image_size: Annotated[int, typer.Option(help="size of input image")] = 2048,
+    batch_size: Annotated[int, typer.Option()] = 8,
+    n_batches_per_epoch: Annotated[int, typer.Option()] = 20,
     n_workers: Annotated[
         int, typer.Option(help="Num of parallel processes in data loader")
-    ] = 4,
+    ] = 8,
     learning_rate: Annotated[float, typer.Option()] = 1e-5,
-    weight_decay: Annotated[float, typer.Option()] = 1e-4,
-    checkpoint_period: Annotated[int, typer.Option()] = 2,
-    n_epochs: Annotated[int, typer.Option()] = 50,
-    n_batches_per_epoch: Annotated[int, typer.Option()] = 40,
+    weight_decay: Annotated[float, typer.Option()] = 1e-3,
+    checkpoint_period: Annotated[int, typer.Option()] = 1,
+    n_epochs: Annotated[int, typer.Option()] = 70,
     seed: Annotated[int, typer.Option()] = 42,
     cuda: Annotated[Optional[bool], typer.Option(help="use GPU")] = True,
     resume_cp_path: Annotated[
@@ -50,6 +51,8 @@ def train(
 
     save_to_yaml(run_path / "cfg.yaml", locals())
 
+    matplotlib.use("Agg")
+
     dataloaders = make_dataloaders(
         image_root_path,
         meta_path,
@@ -63,21 +66,28 @@ def train(
     model = BreastClassifier().to(device)
 
     optim = Adam(params=model.parameters(), lr=learning_rate, weight_decay=weight_decay)
-    criterion = BCEWithLogitsLoss(reduction="none")
+    criterion = BCELoss(reduction="none")
 
     trainer = Trainer(model, optim, criterion, device=device)
 
     tboard_train_writer = SummaryWriter(str(run_path / "log" / "train"))
     tboard_val_writer = SummaryWriter(str(run_path / "log" / "val"))
     train_clbks = make_callbacks(
-        tboard_train_writer,
+        tboard_writer=tboard_train_writer,
+        mode="train",
+        binarizer_abnorm=dataloaders["train"].dataset.binarizer_abnorm,
+        binarizer_type=dataloaders["train"].dataset.binarizer_type,
+    )
+    val_clbks = make_callbacks(
+        tboard_writer=tboard_val_writer,
         model=model,
         optimizer=optim,
-        mode="train",
+        mode="val",
+        binarizer_abnorm=dataloaders["train"].dataset.binarizer_abnorm,
+        binarizer_type=dataloaders["train"].dataset.binarizer_type,
         checkpoint_root_path=run_path / "checkpoints",
         checkpoint_period=checkpoint_period,
     )
-    val_clbks = make_callbacks(tboard_val_writer, mode="val")
 
     for e in range(n_epochs):
         print(f"Epoch {e+1}/{n_epochs}")

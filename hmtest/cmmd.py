@@ -1,15 +1,34 @@
 import concurrent.futures
+import io
+import zipfile
 from dataclasses import dataclass
-import pandas as pd
 from pathlib import Path
 
+import numpy as np
+import pandas as pd
+import requests
 import typer
+from pydicom import dcmread
+from skimage.io import imsave
+from skimage.transform import resize
 from tqdm import tqdm
 from typing_extensions import Annotated
 
 IMAGE_DOWNLOAD_URL = r"https://services.cancerimagingarchive.net/nbia-api/services/v1/getImage?SeriesInstanceUID={}"
 DICOM_PATIENT_ID_TAG = (0x0010, 0x0020)
 DICOM_IMG_LATERALITY_TAG = (0x0020, 0x0062)
+AMBIGUOUS_IMAGES = [
+    ("D1-0202", "00000001.dcm"),
+    ("D2-0284", "00000001.dcm"),
+    ("D1-0202", "00000002.dcm"),
+    ("D2-0284", "00000002.dcm"),
+    ("D1-0202", "00000003.dcm"),
+    ("D2-0284", "00000003.dcm"),
+    ("D1-0202", "00000004.dcm"),
+    ("D2-0284", "00000004.dcm"),
+    ("D1-0808", "00000001.dcm"),
+    ("D1-1292", "00000001.dcm"),
+]
 
 
 @dataclass
@@ -30,10 +49,6 @@ def _fetch_and_save_one_patient(
     Fetch zip archive containing raw DICOM serie given series_uid from
     cancerimagingarchive API and save results locally
     """
-    import io
-    import zipfile
-
-    import requests
 
     url = IMAGE_DOWNLOAD_URL.format(series_uid)
     response = requests.get(url)
@@ -138,7 +153,6 @@ def _traverse_dicom_dirs(dicom_path: Path) -> list[BreastImage]:
     Walk directory containing dicom files to extract the following relevant
     meta-data: side, orientation, and file name for each file.
     """
-    from pydicom import dcmread
 
     images = []
 
@@ -172,20 +186,8 @@ def _remove_ambiguous_images(meta: pd.DataFrame) -> pd.DataFrame:
 
     We therefore remove those images from the meta-data file
     """
-    ambiguous = [
-        ("D1-0202", "00000001.dcm"),
-        ("D2-0284", "00000001.dcm"),
-        ("D1-0202", "00000002.dcm"),
-        ("D2-0284", "00000002.dcm"),
-        ("D1-0202", "00000003.dcm"),
-        ("D2-0284", "00000003.dcm"),
-        ("D1-0202", "00000004.dcm"),
-        ("D2-0284", "00000004.dcm"),
-        ("D1-0808", "00000001.dcm"),
-        ("D1-1292", "00000001.dcm"),
-    ]
     ambiguous_cols = (
-        meta[["patient_id", "filename"]].apply(tuple, axis=1).isin(ambiguous)
+        meta[["patient_id", "filename"]].apply(tuple, axis=1).isin(AMBIGUOUS_IMAGES)
     )
     meta = meta.loc[~ambiguous_cols].reset_index(drop=True)
 
@@ -225,7 +227,7 @@ def build_per_image_meta(meta: Path, dicom_root_path: Path, out: Path):
 
     print(f"found {len(images)} images with annotations")
     meta_out = pd.DataFrame.from_records([im.__dict__ for im in images])
-    print(f"Removing ambiguous images")
+    print(f"Removing ambiguous images {AMBIGUOUS_IMAGES}")
     meta_out = _remove_ambiguous_images(meta_out)
     print(f"writing meta-data to {out}")
     meta_out.to_csv(out, index=False)
@@ -235,19 +237,25 @@ def dicom_to_png(
     meta: Path,
     dicom_root_path: Path,
     out_root_path: Annotated[Path, typer.Argument(help="output path", exists=True)],
-    width: Annotated[int, typer.Option(help="Output width in pixel")] = 512,
+    width: Annotated[int, typer.Option(help="Output width in pixel")] = 2048,
 ):
     """
     Convert DICOM images to PNG.
     """
-    import pandas as pd
-    from pydicom import dcmread
-    from skimage.io import imsave
-    from skimage.transform import resize
-    import numpy as np
 
     meta = pd.read_csv(meta)
+    out_paths = [
+        out_root_path / r.serie_id / (r.filename.split(".")[0] + ".png")
+        for _, r in meta.iterrows()
+    ]
+    remaining = [p.exists() == False for p in out_paths]
+    print(f"Found {sum(remaining)} remaining files out of {len(out_paths)} to convert")
+
+    if sum(remaining) == 0:
+        return
+
     print(f"converting and saving images to {out_root_path}")
+
     for i in tqdm(range(len(meta))):
         r = meta.iloc[i]
         out_path = out_root_path / r.serie_id / (r.filename.split(".")[0] + ".png")

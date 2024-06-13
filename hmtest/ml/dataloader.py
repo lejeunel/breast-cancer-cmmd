@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 from skimage.io import imread
 from skimage.transform import resize
+from sklearn.preprocessing import LabelBinarizer, MultiLabelBinarizer
 from torch.utils.data import Dataset, DataLoader, RandomSampler
 import torch
 from hmtest.ml import image_preprocessing as impp
@@ -37,10 +38,10 @@ class Batch:
         self.loss_type_post = losses["type_post"].detach()
         self.loss_abnorm = losses["abnorm"].detach()
 
-    def set_predictions(self, logits: dict[torch.Tensor]):
-        self.pred_type = logits["type"].sigmoid().detach()
-        self.pred_type_post = logits["type_post"].sigmoid().detach()
-        self.pred_abnorm = logits["abnorm"].sigmoid().detach()
+    def set_predictions(self, predictions: dict[torch.Tensor]):
+        self.pred_type = predictions["type"].detach()
+        self.pred_type_post = predictions["type_post"].detach()
+        self.pred_abnorm = predictions["abnorm"].detach()
 
     def to(self, device):
         self.tgt_type = self.tgt_type.to(device)
@@ -48,41 +49,7 @@ class Batch:
         self.images = self.images.to(device)
 
 
-def _encode_binary_target(
-    meta,
-    in_field="classification",
-    out_field="t_type",
-    map_={"Benign": 0, "Malignant": 1},
-):
-    """
-    Encode a categorical variable to binary using mapping.
-    """
-    values = [map_[r[in_field]] for _, r in meta.iterrows()]
-    meta[out_field] = values
-
-    return meta
-
-
-def _encode_multi_target(
-    meta,
-    in_field="abnormality",
-    out_field_prefix="t_abnormality",
-    universal_value="both",
-):
-    """
-    Encode abnormality target with indicator variables using prefix "out_field".
-    Use universal_value to specify which input value corresponds to all other values
-    """
-    values = [v for v in meta[in_field].unique() if v != universal_value]
-    new_cols = [out_field_prefix + "_" + v for v in values]
-
-    for v, c in zip(values, new_cols):
-        meta[c] = 0
-        meta[c] = [1 if r[in_field] == v else 0 for _, r in meta.iterrows()]
-
-    meta.loc[meta[in_field] == universal_value, new_cols] = 1
-
-    return meta
+MAP_ABNORMALITIES = {"both": "mass,calcification"}
 
 
 class BreastDataset(Dataset):
@@ -100,19 +67,26 @@ class BreastDataset(Dataset):
 
         super().__init__()
         self.meta = pd.read_csv(meta_path)
-        self.meta = self.meta.loc[self.meta.split == split].reset_index()
 
-        self.meta = _encode_binary_target(self.meta)
-        self.meta = _encode_multi_target(self.meta)
+        self.n_views = self._infer_n_views()
+
+        self.binarizer_type = LabelBinarizer().fit(self.meta["classification"])
+
+        self.meta["abnormality"] = self.meta["abnormality"].replace(MAP_ABNORMALITIES)
+        self.binarizer_abnorm = MultiLabelBinarizer().fit(
+            [set(ab.split(",")) for ab in self.meta["abnormality"]]
+        )
+        self.meta["abnormality"] = self.meta["abnormality"].apply(
+            lambda s: set(s.split(","))
+        )
+
+        self.meta = self.meta.loc[self.meta.split == split].reset_index()
 
         self.root_image_path = root_image_path
         self.n_samples = len(self.meta)
         self.image_size = image_size
 
         self.return_orig_image = return_orig_image
-
-    def __len__(self):
-        return len(self.meta)
 
     def _read_and_resize_image(self, image_path):
         """
@@ -131,12 +105,19 @@ class BreastDataset(Dataset):
 
         return image.astype(np.uint8)
 
+    def _infer_n_views(self):
+        files_per_breast = (
+            self.meta[["breast_id", "filename"]].groupby("breast_id").count().filename
+        )
+
+        return max(files_per_breast)
+
     def _preprocess_image(self, image: np.ndarray, is_left: bool):
         """
         1. Clean background noise
         2. Vertical mirroring to make all breast located on left side of frame
         3. Crop height to breast
-        4. Resize to original size
+        4. Resize
         """
 
         orig_size = image.shape
@@ -168,19 +149,52 @@ class BreastDataset(Dataset):
         n_pos = (self.meta[field] == 1).sum()
         return n_pos / len(self.meta)
 
-    def __getitem__(self, i):
+    def __len__(self):
+        return len(self.meta.breast_id.unique())
 
-        meta = self.meta.iloc[i]
-        image_path = (
-            Path(self.root_image_path)
-            / meta.serie_id
-            / (meta.filename.split(".")[0] + ".png")
-        )
-
-        orig_image = self._read_and_resize_image(image_path)[..., None]
+    def _process_one_image(self, meta):
+        orig_image = self._read_and_resize_image(meta.image_path)[..., None]
         image = self._preprocess_image(orig_image.copy(), meta.side == "left")
 
-        res = {"image": image, "meta": meta}
+        return {"image": image, "orig_image": orig_image}
+
+    def __getitem__(self, i):
+
+        meta = self.meta.loc[self.meta.breast_id == self.meta.breast_id.iloc[i]]
+
+        meta = meta.copy()
+
+        image_paths = [
+            (
+                Path(self.root_image_path)
+                / r.serie_id
+                / (r.filename.split(".")[0] + ".png")
+            )
+            for _, r in meta.iterrows()
+        ]
+        meta["image_path"] = image_paths
+
+        res = [self._process_one_image(r) for _, r in meta.iterrows()]
+
+        # edge case: some patients have a single view following
+        # we choose to duplicate the image to match the number of views
+        # available in dominant case
+        if len(res) < self.n_views:
+            res = [res[0] for _ in range(self.n_views)]
+
+        image = np.concatenate([r["image"] for r in res], axis=-1)
+        orig_image = np.concatenate([r["orig_image"] for r in res], axis=-1)
+
+        meta = meta.drop(columns=["filename", "image_path"])
+        meta = meta.iloc[0]
+
+        res = {
+            "image": image,
+            "orig_image": orig_image,
+            "meta": meta,
+            "t_type": self.binarizer_type.transform([meta.classification]),
+            "t_abnorm": self.binarizer_abnorm.transform([meta.abnormality]),
+        }
 
         if self.return_orig_image:
             res.update({"orig_image": orig_image})
@@ -194,14 +208,12 @@ class BreastDataset(Dataset):
         pytorch tensors
         """
 
-        meta = pd.DataFrame([s["meta"] for s in samples])
         images = torch.tensor(
             np.stack([np.moveaxis(s["image"], 2, 0) for s in samples])
         ).float()
 
-        t_type = torch.tensor(meta["t_type"].values)[..., None]
-
-        t_abnorm = torch.tensor(meta["t_abnormality_calcification"].values)[..., None]
+        t_type = torch.tensor(np.concatenate([s["t_type"] for s in samples]))
+        t_abnorm = torch.tensor(np.concatenate([s["t_abnorm"] for s in samples]))
 
         return Batch(
             **{
@@ -259,18 +271,25 @@ if __name__ == "__main__":
         "data/png",
         meta_path="data/meta-images-split.csv",
         split="train",
-        image_size=512,
+        image_size=1024,
         return_orig_image=True,
     )
 
-    to_plot = [16, 0]
+    to_plot = [50, 10]
     fig, axes = plt.subplots(nrows=len(to_plot), ncols=2)
 
     for row, s_idx in enumerate(to_plot):
         sample = dset[s_idx]
         print(sample["meta"])
+        image = sample["image"]
+        orig_image = sample["orig_image"]
+
+        concat_image = np.concatenate([image[..., 0], image[..., 1]], axis=1)
+        concat_orig_image = np.concatenate(
+            [orig_image[..., 0], orig_image[..., 1]], axis=1
+        )
         axes[row][0].title.set_text("Original")
-        axes[row][0].imshow(sample["orig_image"])
+        axes[row][0].imshow(concat_orig_image)
         axes[row][1].title.set_text("Preprocessed")
-        axes[row][1].imshow(sample["image"])
+        axes[row][1].imshow(concat_image)
     plt.show()

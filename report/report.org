@@ -1,4 +1,4 @@
-#+title: A Deep-Learning Approach to Breast Cancer Screening from Mammography Images
+#+title: A Multi-View Deep-Learning Approach to Breast Cancer Screening from Mammography Images
 #+setupfile: setupfile.org
 #+OPTIONS: toc:t
 #+AUTHOR: Laurent Lejeune
