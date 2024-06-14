@@ -33,11 +33,14 @@ def train(
     weight_decay: Annotated[float, typer.Option()] = 1e-3,
     checkpoint_period: Annotated[int, typer.Option()] = 1,
     n_epochs: Annotated[int, typer.Option()] = 70,
-    seed: Annotated[int, typer.Option()] = 42,
+    seed: Annotated[int, typer.Option()] = 0,
     cuda: Annotated[Optional[bool], typer.Option(help="use GPU")] = True,
     resume_cp_path: Annotated[
         Optional[Path], typer.Option(help="checkpoint to resume from")
     ] = None,
+    fusion: Annotated[
+        str, typer.Option(help="breast-wise fusion mode: ['features', 'output']")
+    ] = "output",
 ):
     """
     Training routine.
@@ -63,7 +66,7 @@ def train(
     )
 
     device = torch.device("cuda") if cuda else torch.device("cpu")
-    model = BreastClassifier().to(device)
+    model = BreastClassifier(fusion_mode=fusion).to(device)
 
     optim = Adam(params=model.parameters(), lr=learning_rate, weight_decay=weight_decay)
     criterion = BCELoss(reduction="none")

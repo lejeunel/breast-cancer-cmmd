@@ -73,32 +73,35 @@ class BreastClassifier(nn.Module):
 
     def forward(self, batch):
         """
-        REMINDER: We expect that the channel dimension of each image tensor
-        denotes a different view of the same breast.
+        We experiment on different fusion strategies.
 
-        We experiment on different fusion strategies thereon.
-
-        TODO: Implement two fusion strategies here.
+        Modes:
+        (1) 'features' mode: compute per-breast mean feature vector prior
+            to classifier
+        (2) 'output' mode: Compute average prediction at the output of classifier
         """
-        images = batch.images
-
-        n_views = images.shape[1]
-        views = [torch.unsqueeze(images[:, i, :], 1) for i in range(n_views)]
-
-        feats = torch.cat([self.feat_extractor(view) for view in views], dim=-1)
 
         # fuse views with mean aggregation
-        feats = torch.mean(feats, dim=-1).unsqueeze(-1)
-        feats = torch.flatten(feats, 1)
+        all_preds = []
+        all_feats = []
+        for b in batch.groupby("breast_id"):
+            feats = self.feat_extractor(b.images)
+            all_feats.append(feats)
+            if self.fusion_mode == "features":
+                feats = feats.mean(dim=0)
+                logits = self.type_clf(feats.squeeze())
+                all_preds.append(torch.repeat_interleave(logits.sigmoid(), 2, dim=0))
+            else:
+                logits = self.type_clf(feats.squeeze())
+                preds = logits.sigmoid().mean(dim=0)
+                all_preds.append(torch.repeat_interleave(preds, 2, dim=0))
 
-        logit_abnorm = self.abnorm_clf(feats.squeeze())
-        logit_type = self.type_clf(feats.squeeze())
+        pred_type = torch.cat(all_preds)[..., None]
 
-        merged = torch.cat((logit_abnorm, logit_type), axis=1)
-        logit_type_post = self.type_post_clf(merged)
+        logit_abnorm = self.abnorm_clf(torch.cat(all_feats).squeeze())
+        pred_abnorm = logit_abnorm.sigmoid()
 
         return {
-            "abnorm": logit_abnorm.sigmoid(),
-            "type": logit_type.sigmoid(),
-            "type_post": logit_type_post.sigmoid(),
+            "abnorm": pred_abnorm,
+            "type": pred_type,
         }

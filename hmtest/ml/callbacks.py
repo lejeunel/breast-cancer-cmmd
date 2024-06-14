@@ -190,26 +190,25 @@ def make_callbacks(
 ):
     callbacks = [
         LossWriterCallback(tboard_writer, "loss_abnorm", "loss_abnorm"),
-        LossWriterCallback(tboard_writer, "loss_pre_type", "loss_type"),
-        LossWriterCallback(tboard_writer, "loss_post_type", "loss_type_post"),
+        LossWriterCallback(tboard_writer, "loss_type", "loss_type"),
         MetricWriterCallback(
             tboard_writer,
             metrics.BinaryAccuracy(threshold=0.5),
-            "acc_pre",
+            "acc",
             "tgt_type",
             "pred_type",
         ),
         MetricWriterCallback(
             tboard_writer,
             metrics.BinaryAUROC(),
-            "auc_roc_pre",
+            "auc_roc",
             "tgt_type",
             "pred_type",
         ),
         MetricWriterCallback(
             tboard_writer,
             metrics.BinaryF1Score(threshold=0.5),
-            "f1_pre_type",
+            "f1_type",
             "tgt_type",
             "pred_type",
         ),
@@ -223,7 +222,7 @@ def make_callbacks(
         MetricWriterCallback(
             tboard_writer,
             BinaryPrecisionAtFixedRecall(min_recall=1.0),
-            "precision_at_recall_1_pre",
+            "precision_at_recall_1",
             "tgt_type",
             "pred_type",
         ),

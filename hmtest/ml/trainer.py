@@ -12,7 +12,7 @@ class Trainer:
         model,
         optimizer,
         criterion,
-        loss_factors={"type": 1, "type_post": 0, "abnorm": 1},
+        loss_factors={"type": 1, "abnorm": 1},
         device=torch.device("cpu"),
     ):
         self.model = model
@@ -35,9 +35,6 @@ class Trainer:
         losses = {}
         losses["type"] = self.criterion(predictions["type"], batch.tgt_type)
         losses["type"] = losses["type"].mean()
-
-        losses["type_post"] = self.criterion(predictions["type_post"], batch.tgt_type)
-        losses["type_post"] = losses["type_post"].mean()
 
         losses["abnorm"] = self.criterion(
             predictions["abnorm"], batch.tgt_abnorm

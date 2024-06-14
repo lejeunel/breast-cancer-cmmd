@@ -23,7 +23,6 @@ class Batch:
     iter: int = 0
 
     pred_type: Optional[list[float]] = None
-    pred_type_post: Optional[list[float]] = None
     pred_abnorm: Optional[list[list[float]]] = None
 
     tgt_type: Optional[list[int]] = None
@@ -31,22 +30,31 @@ class Batch:
 
     loss_abnorm: Optional[float] = None
     loss_type: Optional[float] = None
-    loss_type_post: Optional[float] = None
 
     def set_losses(self, losses: dict[torch.Tensor]):
         self.loss_type = losses["type"].detach()
-        self.loss_type_post = losses["type_post"].detach()
         self.loss_abnorm = losses["abnorm"].detach()
 
     def set_predictions(self, predictions: dict[torch.Tensor]):
         self.pred_type = predictions["type"].detach()
-        self.pred_type_post = predictions["type_post"].detach()
         self.pred_abnorm = predictions["abnorm"].detach()
 
     def to(self, device):
         self.tgt_type = self.tgt_type.to(device)
         self.tgt_abnorm = self.tgt_abnorm.to(device)
         self.images = self.images.to(device)
+
+    def groupby(self, field):
+        assert field in self.meta, f"groupby criteria {field} not found in meta fields"
+
+        for _, g in self.meta.groupby(field):
+            b = Batch(
+                meta=g,
+                images=torch.cat([self.images[i][None, ...] for i in g.index]),
+                tgt_type=torch.cat([self.tgt_type[i] for i in g.index]),
+                tgt_abnorm=torch.cat([self.tgt_abnorm[i] for i in g.index]),
+            )
+            yield b
 
 
 MAP_ABNORMALITIES = {"both": "mass,calcification"}
@@ -160,7 +168,12 @@ class BreastDataset(Dataset):
 
     def __getitem__(self, i):
 
-        meta = self.meta.loc[self.meta.breast_id == self.meta.breast_id.iloc[i]]
+        meta = self.meta.loc[self.meta.breast_id == self.meta.breast_id.unique()[i]]
+        # edge case: some patients have a single view following
+        # we choose to duplicate the image to match the number of views
+        # available in dominant case
+        if meta.shape[0] < self.n_views:
+            meta = pd.concat(self.n_views * [meta])
 
         meta = meta.copy()
 
@@ -176,28 +189,18 @@ class BreastDataset(Dataset):
 
         res = [self._process_one_image(r) for _, r in meta.iterrows()]
 
-        # edge case: some patients have a single view following
-        # we choose to duplicate the image to match the number of views
-        # available in dominant case
-        if len(res) < self.n_views:
-            res = [res[0] for _ in range(self.n_views)]
-
-        image = np.concatenate([r["image"] for r in res], axis=-1)
-        orig_image = np.concatenate([r["orig_image"] for r in res], axis=-1)
-
-        meta = meta.drop(columns=["filename", "image_path"])
-        meta = meta.iloc[0]
+        images = np.stack([r["image"] for r in res])
+        orig_images = np.stack([r["orig_image"] for r in res])
 
         res = {
-            "image": image,
-            "orig_image": orig_image,
+            "images": images,
             "meta": meta,
-            "t_type": self.binarizer_type.transform([meta.classification]),
-            "t_abnorm": self.binarizer_abnorm.transform([meta.abnormality]),
+            "t_type": self.binarizer_type.transform(meta.classification),
+            "t_abnorm": self.binarizer_abnorm.transform(meta.abnormality),
         }
 
         if self.return_orig_image:
-            res.update({"orig_image": orig_image})
+            res.update({"orig_images": orig_images})
 
         return res
 
@@ -208,19 +211,22 @@ class BreastDataset(Dataset):
         pytorch tensors
         """
 
-        images = torch.tensor(
-            np.stack([np.moveaxis(s["image"], 2, 0) for s in samples])
+        images = torch.tensor(np.concatenate([s["images"] for s in samples])).float()
+        images = torch.moveaxis(images, -1, 1)
+
+        t_type = torch.tensor(np.concatenate([s["t_type"] for s in samples])).float()
+        t_abnorm = torch.tensor(
+            np.concatenate([s["t_abnorm"] for s in samples])
         ).float()
 
-        t_type = torch.tensor(np.concatenate([s["t_type"] for s in samples]))
-        t_abnorm = torch.tensor(np.concatenate([s["t_abnorm"] for s in samples]))
+        meta = pd.concat([s["meta"] for s in samples]).reset_index()
 
         return Batch(
             **{
-                "meta": pd.DataFrame([s["meta"] for s in samples]),
+                "meta": meta,
                 "images": images,
-                "tgt_type": t_type.float(),
-                "tgt_abnorm": t_abnorm.float(),
+                "tgt_type": t_type,
+                "tgt_abnorm": t_abnorm,
             }
         )
 
@@ -265,31 +271,20 @@ def make_dataloaders(
 
 
 if __name__ == "__main__":
-    import matplotlib.pyplot as plt
+    torch.manual_seed(0)
 
     dset = BreastDataset(
         "data/png",
         meta_path="data/meta-images-split.csv",
-        split="train",
-        image_size=1024,
-        return_orig_image=True,
+        split="val",
+        image_size=2048,
+    )
+    dloader = DataLoader(
+        dset,
+        batch_size=8,
+        collate_fn=BreastDataset.collate_fn,
     )
 
-    to_plot = [50, 10]
-    fig, axes = plt.subplots(nrows=len(to_plot), ncols=2)
-
-    for row, s_idx in enumerate(to_plot):
-        sample = dset[s_idx]
-        print(sample["meta"])
-        image = sample["image"]
-        orig_image = sample["orig_image"]
-
-        concat_image = np.concatenate([image[..., 0], image[..., 1]], axis=1)
-        concat_orig_image = np.concatenate(
-            [orig_image[..., 0], orig_image[..., 1]], axis=1
-        )
-        axes[row][0].title.set_text("Original")
-        axes[row][0].imshow(concat_orig_image)
-        axes[row][1].title.set_text("Preprocessed")
-        axes[row][1].imshow(concat_image)
-    plt.show()
+    for b in dloader:
+        breakpoint()
+        pass

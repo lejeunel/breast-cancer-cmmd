@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pandas as pd
 import typer
+from sklearn.model_selection import StratifiedShuffleSplit
 from typing_extensions import Annotated
 
 
@@ -37,9 +38,6 @@ def split(
     """
 
     assert val_size + test_size < 1.0, f"val and test sizes must be < 1"
-
-    import pandas as pd
-    from sklearn.model_selection import StratifiedShuffleSplit
 
     meta = pd.read_csv(meta_in)
     stratif_cols = stratif_cols.split(",")
