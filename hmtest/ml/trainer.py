@@ -31,14 +31,12 @@ class Trainer:
         loss[target == 0] = loss[target == 0] / (1 - freq_pos)
         return loss
 
-    def _compute_losses(self, batch, predictions):
+    def _compute_losses(self, batch):
         losses = {}
-        losses["type"] = self.criterion(predictions["type"], batch.tgt_type)
+        losses["type"] = self.criterion(batch.pred_type, batch.tgt_type)
         losses["type"] = losses["type"].mean()
 
-        losses["abnorm"] = self.criterion(
-            predictions["abnorm"], batch.tgt_abnorm
-        ).mean()
+        losses["abnorm"] = self.criterion(batch.pred_abnorm, batch.tgt_abnorm).mean()
 
         return losses
 
@@ -52,9 +50,9 @@ class Trainer:
 
             self.optimizer.zero_grad()
 
-            predictions = self.model(batch)
+            batch = self.model(batch)
 
-            losses = self._compute_losses(batch, predictions)
+            losses = self._compute_losses(batch)
 
             total_loss = 0
             for k, v in self.loss_factors.items():
@@ -64,8 +62,8 @@ class Trainer:
             total_loss.backward()
             self.optimizer.step()
 
-            batch.set_losses(losses)
-            batch.set_predictions(predictions)
+            for k, v in losses.items():
+                batch.set_loss(v, k)
 
             pbar.set_description(
                 f"[train] lss: {total_loss.detach().cpu().numpy().sum():.2e}"
@@ -92,11 +90,11 @@ class Trainer:
         for batch in (pbar := tqdm(dataloader)):
 
             batch.to(self.device)
-            predictions = self.model(batch)
-            losses = self._compute_losses(batch, predictions)
+            batch = self.model(batch)
+            losses = self._compute_losses(batch)
 
-            batch.set_losses(losses)
-            batch.set_predictions(predictions)
+            for k, v in losses.items():
+                batch.set_loss(v, k)
 
             pbar.set_description("[val]")
 

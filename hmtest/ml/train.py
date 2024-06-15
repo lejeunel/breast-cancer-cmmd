@@ -23,33 +23,45 @@ def train(
     exp_name: Annotated[
         str, typer.Argument(help="name of experiment (used for logging)")
     ],
-    image_size: Annotated[int, typer.Option(help="size of input image")] = 2048,
-    batch_size: Annotated[int, typer.Option()] = 8,
-    n_batches_per_epoch: Annotated[int, typer.Option()] = 20,
+    append_datetime_to_exp: Annotated[
+        Optional[bool],
+        typer.Option(help="Whether we add a datetime stamp to run directory"),
+    ] = True,
+    image_size: Annotated[int, typer.Option(help="size of input image")] = 1024,
+    batch_size: Annotated[int, typer.Option()] = 32,
+    n_batches_per_epoch: Annotated[int, typer.Option()] = 25,
     n_workers: Annotated[
         int, typer.Option(help="Num of parallel processes in data loader")
     ] = 8,
-    learning_rate: Annotated[float, typer.Option()] = 1e-5,
-    weight_decay: Annotated[float, typer.Option()] = 1e-3,
+    learning_rate: Annotated[float, typer.Option()] = 5e-5,
+    weight_decay: Annotated[float, typer.Option()] = 1e-5,
     checkpoint_period: Annotated[int, typer.Option()] = 1,
-    n_epochs: Annotated[int, typer.Option()] = 70,
+    n_epochs: Annotated[int, typer.Option()] = 15,
     seed: Annotated[int, typer.Option()] = 0,
     cuda: Annotated[Optional[bool], typer.Option(help="use GPU")] = True,
     resume_cp_path: Annotated[
         Optional[Path], typer.Option(help="checkpoint to resume from")
     ] = None,
     fusion: Annotated[
-        str, typer.Option(help="breast-wise fusion mode: ['features', 'output']")
+        str,
+        typer.Option(
+            help="breast-wise fusion mode: ['max-feats', 'mean-feats', 'output']"
+        ),
     ] = "output",
+    lftype: Annotated[float, typer.Option(help="loss factor for type")] = 1.0,
+    lfabnorm: Annotated[float, typer.Option(help="loss factor for abnormality")] = 1.0,
 ):
     """
     Training routine.
     """
 
     torch.manual_seed(seed)
-    current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
 
-    run_path = out_root_path / (current_time + "-" + exp_name)
+    if append_datetime_to_exp:
+        current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        exp_name = current_time + "_" + exp_name
+
+    run_path = out_root_path / exp_name
     run_path.mkdir(exist_ok=True)
 
     save_to_yaml(run_path / "cfg.yaml", locals())
@@ -59,6 +71,7 @@ def train(
     dataloaders = make_dataloaders(
         image_root_path,
         meta_path,
+        meta_backup_path=run_path,
         image_size=image_size,
         batch_size=batch_size,
         n_batches_per_epoch=n_batches_per_epoch,
@@ -71,7 +84,13 @@ def train(
     optim = Adam(params=model.parameters(), lr=learning_rate, weight_decay=weight_decay)
     criterion = BCELoss(reduction="none")
 
-    trainer = Trainer(model, optim, criterion, device=device)
+    trainer = Trainer(
+        model,
+        optim,
+        criterion,
+        device=device,
+        loss_factors={"type": lftype, "abnorm": lfabnorm},
+    )
 
     tboard_train_writer = SummaryWriter(str(run_path / "log" / "train"))
     tboard_val_writer = SummaryWriter(str(run_path / "log" / "val"))

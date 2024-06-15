@@ -31,30 +31,47 @@ class Batch:
     loss_abnorm: Optional[float] = None
     loss_type: Optional[float] = None
 
-    def set_losses(self, losses: dict[torch.Tensor]):
-        self.loss_type = losses["type"].detach()
-        self.loss_abnorm = losses["abnorm"].detach()
+    def set_loss(self, losses: torch.Tensor, field: str):
+        assert field in ["type", "abnorm"], f"could not set loss for type {field}"
+        setattr(self, "loss" + "_" + field, losses)
 
-    def set_predictions(self, predictions: dict[torch.Tensor]):
-        self.pred_type = predictions["type"].detach()
-        self.pred_abnorm = predictions["abnorm"].detach()
+    def set_predictions(self, predictions: torch.Tensor, field: str):
+        assert field in ["type", "abnorm"], f"could not set prediction for type {field}"
+        setattr(self, "pred" + "_" + field, predictions)
 
     def to(self, device):
-        self.tgt_type = self.tgt_type.to(device)
-        self.tgt_abnorm = self.tgt_abnorm.to(device)
-        self.images = self.images.to(device)
+        """
+        Send tensor to device
+        """
+        for attr in ["tgt_type", "tgt_abnorm", "images"]:
+            setattr(self, attr, getattr(self, attr).to(device))
 
     def groupby(self, field):
         assert field in self.meta, f"groupby criteria {field} not found in meta fields"
 
-        for _, g in self.meta.groupby(field):
+        for _, g in self.meta.groupby(field, sort=False):
             b = Batch(
                 meta=g,
                 images=torch.cat([self.images[i][None, ...] for i in g.index]),
-                tgt_type=torch.cat([self.tgt_type[i] for i in g.index]),
-                tgt_abnorm=torch.cat([self.tgt_abnorm[i] for i in g.index]),
+                tgt_type=torch.stack([self.tgt_type[i] for i in g.index]),
+                tgt_abnorm=torch.stack([self.tgt_abnorm[i] for i in g.index]),
             )
             yield b
+
+    def get_num_of_views(self):
+        return self.meta.shape[0]
+
+    @classmethod
+    def from_list(cls, batches):
+        return cls(
+            meta=pd.concat([b.meta for b in batches]),
+            images=torch.cat([b.images for b in batches]),
+            iter=batches[0].iter,
+            pred_type=torch.cat([b.pred_type for b in batches]),
+            pred_abnorm=torch.cat([b.pred_abnorm for b in batches]),
+            tgt_type=torch.cat([b.tgt_type for b in batches]),
+            tgt_abnorm=torch.cat([b.tgt_abnorm for b in batches]),
+        )
 
 
 MAP_ABNORMALITIES = {"both": "mass,calcification"}
@@ -70,6 +87,7 @@ class BreastDataset(Dataset):
         split: str,
         image_size: int = 512,
         return_orig_image=False,
+        with_pairs=False,
     ):
         """ """
 
@@ -77,6 +95,7 @@ class BreastDataset(Dataset):
         self.meta = pd.read_csv(meta_path)
 
         self.n_views = self._infer_n_views()
+        self.with_pairs = with_pairs
 
         self.binarizer_type = LabelBinarizer().fit(self.meta["classification"])
 
@@ -164,12 +183,19 @@ class BreastDataset(Dataset):
         orig_image = self._read_and_resize_image(meta.image_path)[..., None]
         image = self._preprocess_image(orig_image.copy(), meta.side == "left")
 
+        image = image / 255
+
+        # if meta.classification == "Malignant":
+        #     image = np.ones_like(image)
+        # else:
+        #     image = np.zeros_like(image)
+
         return {"image": image, "orig_image": orig_image}
 
     def __getitem__(self, i):
 
         meta = self.meta.loc[self.meta.breast_id == self.meta.breast_id.unique()[i]]
-        # edge case: some patients have a single view following
+        # edge case: some patients have a single view
         # we choose to duplicate the image to match the number of views
         # available in dominant case
         if meta.shape[0] < self.n_views:
@@ -207,7 +233,7 @@ class BreastDataset(Dataset):
     @staticmethod
     def collate_fn(samples: list[dict]):
         """
-        convert list of samples obtained through __getitem__ to
+        Convert list of samples obtained through __getitem__ to
         pytorch tensors
         """
 
@@ -234,6 +260,7 @@ class BreastDataset(Dataset):
 def make_dataloaders(
     image_root_path: Path,
     meta_path: Path,
+    meta_backup_path: Path,
     batch_size: int,
     image_size: int,
     n_workers: int = 8,
@@ -252,14 +279,20 @@ def make_dataloaders(
         for s in splits
     }
 
+    print(f"saving meta-data files to {meta_backup_path}")
+    for split, dset in datasets.items():
+        dset.meta.to_csv(meta_backup_path / f"meta-{split}.csv")
+
+    effective_batch_size = batch_size // datasets["train"].n_views
+
     dataloaders = {
         s: DataLoader(
             d,
-            batch_size=batch_size,
+            batch_size=effective_batch_size,
             num_workers=n_workers,
             collate_fn=BreastDataset.collate_fn,
             sampler=(
-                RandomSampler(d, num_samples=n_batches_per_epoch * batch_size)
+                RandomSampler(d, num_samples=n_batches_per_epoch * effective_batch_size)
                 if s == "train"
                 else None
             ),
@@ -268,23 +301,3 @@ def make_dataloaders(
     }
 
     return dataloaders
-
-
-if __name__ == "__main__":
-    torch.manual_seed(0)
-
-    dset = BreastDataset(
-        "data/png",
-        meta_path="data/meta-images-split.csv",
-        split="val",
-        image_size=2048,
-    )
-    dloader = DataLoader(
-        dset,
-        batch_size=8,
-        collate_fn=BreastDataset.collate_fn,
-    )
-
-    for b in dloader:
-        breakpoint()
-        pass
