@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import Optional
 
 import torch
+from rich.pretty import pprint
 import typer
 import yaml
 from hmtest.ml.dataloader import BreastDataset
@@ -31,7 +32,8 @@ def test(
     with open(run_path / "cfg.yaml", "r") as file:
         cfg = yaml.safe_load(file)
 
-    print(f"config: {cfg}")
+    pprint("config:")
+    pprint(cfg, expand_all=True)
 
     assert meta_path.exists(), f"could not find meta-data file at {meta_path}"
 
@@ -62,7 +64,7 @@ def test(
         score = archive["metric"]
         models.append({"score": score, "path": path})
 
-    print(models)
+    pprint(models)
     best_model = max(models, key=lambda m: m["score"])
     print(f"found best model: {best_model['path']} with score {best_model['score']}")
 
