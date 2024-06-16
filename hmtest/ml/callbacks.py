@@ -226,16 +226,6 @@ def make_callbacks(
             "tgt_type",
             "pred_type",
         ),
-        ConfusionMatrixWriterCallback(
-            tboard_writer, "conf_mat", "tgt_type", "pred_type", binarizer=binarizer_type
-        ),
-        ConfusionMatrixWriterCallback(
-            tboard_writer,
-            "conf_mat_abnorm",
-            "tgt_abnorm",
-            "pred_abnorm",
-            binarizer=binarizer_abnorm,
-        ),
     ]
 
     if mode == "val":
@@ -246,8 +236,8 @@ def make_callbacks(
                 optimizer=optimizer,
                 epoch_period=checkpoint_period,
                 metric_fn=metrics.BinaryAUROC(),
-                batch_field_pred="tgt_type",
-                batch_field_true="pred_type",
+                batch_field_pred="pred_type",
+                batch_field_true="tgt_type",
             )
         ]
 

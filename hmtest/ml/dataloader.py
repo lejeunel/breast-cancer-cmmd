@@ -267,7 +267,7 @@ def make_dataloaders(
     n_batches_per_epoch=30,
 ):
 
-    splits = ["train", "val", "test"]
+    splits = ["train", "val"]
 
     datasets = {
         s: BreastDataset(
@@ -281,7 +281,7 @@ def make_dataloaders(
 
     print(f"saving meta-data files to {meta_backup_path}")
     for split, dset in datasets.items():
-        dset.meta.to_csv(meta_backup_path / f"meta-{split}.csv")
+        dset.meta.to_csv(meta_backup_path / f"meta-{split}.csv", index=False)
 
     effective_batch_size = batch_size // datasets["train"].n_views
 
