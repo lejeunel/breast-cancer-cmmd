@@ -29,12 +29,12 @@ def train(
     ] = True,
     image_size: Annotated[int, typer.Option(help="size of input image")] = 1024,
     batch_size: Annotated[int, typer.Option()] = 16,
-    n_batches_per_epoch: Annotated[int, typer.Option()] = 50,
+    n_batches_per_epoch: Annotated[int, typer.Option()] = 30,
     n_workers: Annotated[
         int, typer.Option(help="Num of parallel processes in data loader")
     ] = 8,
     learning_rate: Annotated[float, typer.Option()] = 5e-5,
-    weight_decay: Annotated[float, typer.Option()] = 1e-5,
+    weight_decay: Annotated[float, typer.Option()] = 0,
     checkpoint_period: Annotated[int, typer.Option()] = 1,
     n_epochs: Annotated[int, typer.Option()] = 15,
     seed: Annotated[int, typer.Option()] = 0,

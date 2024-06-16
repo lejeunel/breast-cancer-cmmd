@@ -34,6 +34,7 @@ class Trainer:
     def _compute_losses(self, batch):
         losses = {}
         losses["type"] = self.criterion(batch.pred_type, batch.tgt_type)
+        losses["type"] = self._weigh_type_loss(losses["type"], batch.tgt_type)
         losses["type"] = losses["type"].mean()
 
         losses["abnorm"] = self.criterion(batch.pred_abnorm, batch.tgt_abnorm).mean()

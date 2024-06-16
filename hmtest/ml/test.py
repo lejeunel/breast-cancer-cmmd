@@ -1,12 +1,13 @@
 from pathlib import Path
 from typing import Optional
 
+import pandas as pd
 import torch
-from rich.pretty import pprint
 import typer
 import yaml
 from hmtest.ml.dataloader import BreastDataset
 from hmtest.ml.model import BreastClassifier
+from rich.pretty import pprint
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 from typing_extensions import Annotated
@@ -64,15 +65,25 @@ def test(
         score = archive["metric"]
         models.append({"score": score, "path": path})
 
-    pprint(models)
     best_model = max(models, key=lambda m: m["score"])
     print(f"found best model: {best_model['path']} with score {best_model['score']}")
 
     model.eval()
+    meta = []
     with torch.no_grad():
         for batch in (pbar := tqdm(dloader)):
 
             batch.to(device)
             batch = model(batch)
 
+            # append score to meta-data
+            meta_ = batch.meta
+            meta_["pred_type"] = batch.pred_type.cpu().numpy()
+            meta.append(meta_)
+
             pbar.set_description("[test]")
+
+    out_path = run_path / "test-results.csv"
+    print(f"saving image-wise results to {out_path}")
+    meta = pd.concat(meta)
+    meta.to_csv(out_path, index=False)
