@@ -40,13 +40,13 @@ class ModelCheckpointCallback(Callback):
         self.root_path.mkdir(exist_ok=True)
 
     def on_batch_end(self, batch: Batch, *args, **kwargs):
-
-        self.metric_fn.update(
-            getattr(batch, self.batch_field_pred).flatten(),
-            getattr(batch, self.batch_field_true).flatten().int(),
-        )
+        meta_ = batch.meta.drop_duplicates("breast_id")
+        y_pred = getattr(batch, self.batch_field_pred).flatten()[meta_.index]
+        y_true = getattr(batch, self.batch_field_true).flatten().int()[meta_.index]
+        self.metric_fn.update(y_pred, y_true)
 
     def on_epoch_end(self, *args, **kwargs):
+        # print(f"ModelCheckpointCallback / {self.metric_fn}: {self.metric_fn.compute()}")
 
         if (self.epoch % self.epoch_period) == 0:
             path_ = self.root_path / f"epoch_{self.epoch:03d}.pth.tar"
@@ -62,6 +62,7 @@ class ModelCheckpointCallback(Callback):
             print(f"saved checkpoint to {path_}")
 
         self.epoch += 1
+        self.metric_fn.reset()
 
 
 class LossWriterCallback(Callback):
@@ -167,14 +168,15 @@ class MetricWriterCallback(Callback):
 
     def on_batch_end(self, batch: Batch, *args, **kwargs):
 
-        scalar = self.metric_fn.update(
-            getattr(batch, self.batch_field_pred).flatten(),
-            getattr(batch, self.batch_field_true).flatten().int(),
-        ).compute()
+        meta_ = batch.meta.drop_duplicates("breast_id")
+        y_pred = getattr(batch, self.batch_field_pred).flatten()[meta_.index]
+        y_true = getattr(batch, self.batch_field_true).flatten().int()[meta_.index]
+        scalar = self.metric_fn.update(y_pred, y_true).compute()
 
         self.writer.add_scalar(self.out_field, scalar, batch.iter)
 
     def on_epoch_end(self, *args, **kwargs):
+        # print(f"MetricWriterCallbacks / {self.metric_fn}: {self.metric_fn.compute()}")
         self.metric_fn.reset()
 
 

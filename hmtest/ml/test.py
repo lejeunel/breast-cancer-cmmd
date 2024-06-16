@@ -12,6 +12,8 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 from typing_extensions import Annotated
 
+from sklearn.metrics import roc_auc_score
+
 
 def test(
     meta_path: Annotated[Path, typer.Argument(help="path to meta-data csv file")],
@@ -76,9 +78,9 @@ def test(
             batch.to(device)
             batch = model(batch)
 
-            # append score to meta-data
             meta_ = batch.meta
             meta_["pred_type"] = batch.pred_type.cpu().numpy()
+            meta_["tgt_type"] = batch.tgt_type.cpu().numpy()
             meta.append(meta_)
 
             pbar.set_description("[test]")
@@ -86,4 +88,7 @@ def test(
     out_path = run_path / "test-results.csv"
     print(f"saving image-wise results to {out_path}")
     meta = pd.concat(meta)
+
+    auc = roc_auc_score(meta["tgt_type"], meta["pred_type"])
+    print(f"AUC-ROC: {auc}")
     meta.to_csv(out_path, index=False)

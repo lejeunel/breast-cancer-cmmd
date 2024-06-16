@@ -28,27 +28,61 @@ data_path = Path('../data')
 - [cite:@xu18]: PAD-Net: Multi-Tasks Guided Prediction-and-Distillation Network for
   Simultaneous Depth Estimation and Scene Parsing
 
-* Mammography Dataset
+* The Chinese Mammography Database (CMMD)
+
+** <<screening>>Screening
 
 We use the publicly available Chinese Mammography Database (CMMD) [cite:@cai23],
 which originally contains $\approx 1871$ patients screened for breast cancer.
 and filter-out  scans that match the following criteria:
 
 - Patients with history of previous breast biopsy within 1 week, or any therapy for breast lesions
-  prior to mammography
-- Patients with breasts prosthesis
-- Images with substantial motion artifact
+  prior to mammography.
+- Patients with breasts prosthesis.
+- Images with substantial motion artifact.
 
 This reduces our dataset to $1775$ patients.
-Each case is then analyzed by domain experts so as to assign to each *image* the following
+
+** Annotations
+
+Each *study* is analyzed by domain experts so as to assign the following
 target variables:
-- $y_{p} \in \{\text{benign}, \text{malignant}\, \text{none}\}$ indicates the type of tumor, or ~none~ when sample is sane.
+
+- $y_{t} \in \{\text{benign}, \text{malignant}\, \text{none}\}$ indicates the type of tumor.
 - $y_{a} \in \{\text{calcification}, \text{mass}, \text{both}\}$ indicates the type of abnormality, where ~both~ means that both ~calcification~ and ~mass~ are present.
 - $y_s \in \{\text{luminal-A}, \text{luminal-B},\text{HER2-positive},\text{triple-negative},\text{missing}\}$ a
   subtype information (possibly missing).
 
+** <<limitations>>Limitations
+
+The CMMD dataset is challenging to use in a Machine Learning setting.
+Indeed, for a ML practitioner, coherent labels are crucial to fully exploit
+modern techniques. In particular, we found that this dataset includes
+the following sources of noise:
+
+1. Each study contains 2 views per breast. This is due to the fact that the visual cues
+    that are relevant to distinguish a benign from a malignant tumor are
+     sometimes absent from one of the two available views, thereby justifying redundancy.
+     In other words, the labels that directly to visible abnormalities, i.e. $y_{a}$,
+     have been associated with two views (images), while one of the two could contain no
+     abnormalities.
+
+2. While the abnormality labels $y_{a}$ seem to refer to well-defined visible objects,
+   we find that these come in at least 2 forms: compact blobs, and clusters.
+   Importantly, the latter distinction of form is a crucial clue
+   to identify malignancy [cite:@azam21].
+   Again, this adds another component of noise in our label set.
+
+3. In our best understanding, $y_{t}$, the malignant/benign label, has been
+   assigned following a thorough histopathological protocol, and not solely on the
+   basis of the imaging protocol.
+
+While there exists many techniques to deal with noisy labels [cite:@song22],
+we choose to investigate on simple arithmetic operations as part of the
+training phase.
 
 ** Exploration
+
 #+BEGIN_SRC python :session :exports results :results none
 from hmtest.ml.dataloader import DataLoader
 image_size = 320
@@ -66,8 +100,52 @@ sns.histplot(meta, x='abnormality', hue="classification", ax=ax)
 fig.savefig(fig_path)
 #+END_SRC
 
-#+CAPTION: Distributions of tumor types on each target category
+#+CAPTION: Distributions of abnormalities for diagnosis
 #+LABEL: fig:distributions
 [[./images/distrib.png]]
+
+** Curation and Splitting
+
+As we endeavour to use the CMMD dataset to produce an ML solution, we
+perform a curation step and split all images in a train, validation, and testing split.
+
+In addition to the filtering criteria described in Sec. [[screening]], we further
+discard images that have identical hashes following the authors's recommendations [fn:reco].
+
+In our best understanding, there does not exists an official and publicly avaible train/val/test
+split. We therefore make our own through the following steps:
+
+1. We discard all images that have no labels $y_t$ and $y_a$.
+2. We group all images by breast, i.e. each group contain two views of the same breast.
+3. We divide all groups using a stratified shuffled splitting strategy, where each split
+    must contain the same proportion of $y_t$ and $y_a$. Our splits contain $60$, $20$,
+     and $20\%$ of images for the train, validation, and testing set, respectively.
+
+[fn:reco] https://www.cancerimagingarchive.net/collection/cmmd/
+
+* Methods
+
+We aim to learn a predictor that determines whether a given mammography study
+contains a malignant or benign tumor.
+
+At its core, our model is a Convolution Neural Network based on the ResNet34
+architecture [cite:@he15], where the bottleneck gives $512$ features,
+which we further map to a single scalar value denoting the probability that
+the *image* contains a malignant tumor.
+
+** Learning with Multiple Views
+
+Following previous works in breast cancer screening [cite:@geras17] [cite:@seeland21],
+we implement and test several strategies (*fusion mode*) to handle the fact that
+labels are assigned to studies (and not images).
+
+1. *Output average*: We assign to all images of the same study
+    the mean probability output.
+2. *Feature average*: We first compute the mean feature vector of all images of the same
+   study. We then pass this vector into the classification layer prior to compute the loss and
+   applying back-propagation.
+3. *Feature  max*: Similar to previous approach, but we compute the max descriptors instead.
+
+** Refining Features Through Abnormality Classification
 
 #+print_bibliography:

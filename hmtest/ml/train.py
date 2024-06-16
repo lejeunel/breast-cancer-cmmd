@@ -36,7 +36,7 @@ def train(
     learning_rate: Annotated[float, typer.Option()] = 5e-5,
     weight_decay: Annotated[float, typer.Option()] = 0,
     checkpoint_period: Annotated[int, typer.Option()] = 1,
-    n_epochs: Annotated[int, typer.Option()] = 15,
+    n_epochs: Annotated[int, typer.Option()] = 20,
     seed: Annotated[int, typer.Option()] = 0,
     cuda: Annotated[Optional[bool], typer.Option(help="use GPU")] = True,
     resume_cp_path: Annotated[
@@ -59,9 +59,10 @@ def train(
 
     if append_datetime_to_exp:
         current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        exp_name = current_time + "_" + exp_name
+        run_path = out_root_path / (current_time + "_" + exp_name)
+    else:
+        run_path = out_root_path / exp_name
 
-    run_path = out_root_path / exp_name
     run_path.mkdir(exist_ok=True)
 
     save_to_yaml(run_path / "cfg.yaml", locals())
