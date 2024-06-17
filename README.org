@@ -2,6 +2,63 @@
 
 * Usage & Configuration
 
+** On Host Machine
+
+- Install [[https://python-poetry.org/docs/#installation][Poetry]] in user-space.
+- move to project's root and install project with:
+
+#+begin_src shell
+poetry install
+#+end_src
+
+This will look for an existing and activated virtual environment, and create one
+in current directory if it does not exist.
+
+We make available a serie of CLI endpoints to execute the different phases of
+our pipeline. The root endpoint is documented at:
+
+#+begin_src shell
+python hmtest/main.py --help
+#+end_src
+
+*** Selecting Series and Merging Annotations
+
+We provide a base meta-data file that contains references to the original CMMD dataset at
+~assets/meta.csv~.
+Remove rows from this file prior to running the next commands to discard
+patients.
+
+First, we merge our base meta-data file with annotations with:
+
+#+begin_src shell
+python hmtest/main.py cmmd merge-meta-and-annotations assets/meta.csv assets/annotations.csv <data-dir>/meta-annotated.csv
+#+end_src
+
+*** Downloading Raw-data
+
+The raw DICOM files are publicly available on ~cancerimagingarchive.net~.
+We provide a routine to download these. We recommend setting ~n-threads~
+to >16 to accelerate download time.
+
+#+begin_src shell
+python hmtest/main.py cmmd fetch-raw-data -w <n-threads> <data-dir>/meta-annotated.csv <data-dir>/dicom
+#+end_src
+
+*** Parse DICOM series
+Next, we parse each dicom file to obtain some relevant meta-data:
+
+#+begin_src shell
+python hmtest/main.py cmmd build-per-image-meta <data-dir>/meta-annotated.csv <data-dir>/meta-images.csv
+#+end_src
+
+*** Convert images
+
+Last, we convert each image to 8-bit in PNG format:
+
+#+begin_src shell
+python hmtest/main.py cmmd dicom-to-png <data-dir>/meta-images.csv <data-dir>/dicom <data-dir>/png
+#+end_src
+
 ** Using Docker and Make
 
 We provide a ~Dockerfile~ along with a ~Makefile~ to facilitate reproducibility and
@@ -17,25 +74,6 @@ Finally, you may run the data fetching pipeline with
 
 #+begin_src sh
 make ml-splitted-dataset
-#+end_src
-
-** On Host Machine
-
-- Install [[https://python-poetry.org/docs/#installation][Poetry]] in user-space.
-- move to project's root and install project with:
-
-#+begin_src shell
-poetry install
-#+end_src
-
-This will look for an existing and activated virtual environment, and create one
-in current directory if it does not exist.
-
-Last, check out the pipeline given in the ~Makefile~. Each target basically reduce to
-calling a CLI. You may start with:
-
-#+begin_src shell
-python hmtest/main.py --help
 #+end_src
 
 * Notes

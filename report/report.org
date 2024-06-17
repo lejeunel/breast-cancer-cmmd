@@ -104,7 +104,12 @@ fig.savefig(fig_path)
 #+LABEL: fig:distributions
 [[./images/distrib.png]]
 
-** Curation and Splitting
+#+CAPTION: Example images. On each row, we show two views of the same breast.
+#+LABEL: fig:preview
+#+ATTR_LATEX: :width 9cm
+[[./images/previews.png]]
+
+** <<split>>Curation and Splitting
 
 As we endeavour to use the CMMD dataset to produce an ML solution, we
 perform a curation step and split all images in a train, validation, and testing split.
@@ -128,12 +133,12 @@ split. We therefore make our own through the following steps:
 We aim to learn a predictor that determines whether a given mammography study
 contains a malignant or benign tumor.
 
-At its core, our model is a Convolution Neural Network based on the ResNet34
-architecture [cite:@he15], where the bottleneck gives $512$ features,
-which we further map to a single scalar value denoting the probability that
-the *image* contains a malignant tumor.
+At its core, our model extracts features using a Convolutional Neural Network,
+and follows with two parallel classification heads.
 
-** Learning with Multiple Views
+We now develop our composite objectives and multi-view classification approaches.
+
+** <<multiview>>Learning with Multiple Views
 
 Following previous works in breast cancer screening [cite:@geras17] [cite:@seeland21],
 we implement and test several strategies (*fusion mode*) to handle the fact that
@@ -146,6 +151,69 @@ labels are assigned to studies (and not images).
    applying back-propagation.
 3. *Feature  max*: Similar to previous approach, but we compute the max descriptors instead.
 
-** Refining Features Through Abnormality Classification
+** Auxiliary Task
+
+In addition to our main task of classifying tumors as malignant/benign, we
+further investigate on the relevance of adding the auxiliary task of identifying
+abnormalities.
+
+In particular, we add a second classifier head to our backbone, and train the whole
+model end-to-end to studies in malignant/benign, and calcification/mass/both,
+both objectives being optimized in parallel.
+
+We implement similar aggregation strategies given in Sec. [[multiview]].
+
+Note that as shown in Fig. [[fig:distributions]], this auxiliary task belongs to the
+/multi-label/ scenario, since a given study/image can potentially
+show more than one class.
+
+** Architecture
+
+Our model is a Convolution Neural Network based on the ResNet34
+architecture [cite:@he15], where the bottleneck gives $512$ features.
+Next, features are mapped to probabilities using linear layers.
+
+We give an illustration of our model in Fig. [[fig:model]].
+
+#+CAPTION: Our model takes as input a set of images that show several views of the same breast. We investigate on several fusion strategies (dashed columns): (1) Fuse features at bottleneck, and (2) fuse prediction outputs. We also set an auxiliary multi-label classification objective on abnormalities (bottom branch).
+#+LABEL: fig:model
+[[./images/model.png]]
+
+** Preprocessing, Training, and Validation
+
+We convert the original images given as DICOM series into 8-bit images,
+and rescale these to $1024 \times 1024$ pixels. We found that this
+is a good compromise as it conserves most fine-grained details while
+reducing computational burden.
+
+Next, we apply the triangle thresholding approach described in [cite:@walsh22]
+to remove background noise.
+
+We feed our model with mini-batches that combine both views of a given breast, and
+apply our fusion operators prior to computing the gradients.
+
+Our classification tasks are optimized as follows:
+
+1. *Type*: Classifies breasts as Malignant/Benign using a Binary Cross-Entropy.
+2. *Abnormality*: Classifies breasts as Mass *and/or* calcification using a Binary Cross-Entropy
+   in a multi-label fashion.
+
+We train both our backbone and classification heads in an end-to-end regime through
+gradient descent using a cross-validation strategy.
+We leverage the training/validation splits described in Sec. [[split]], and train for
+of $20$ epochs, where each epoch contains $30$ randomly sampled mini-batches,
+where each mini-batch contains $16$ images, i.e. $8$ breasts.
+
+Our gradients are computed using the Adam optimizer with a learning rate of
+$5 \times 10^{-5}$.
+
+When combining different objectives, we set weighing factors to
+the losses to $1$.
+
+For comparison with the state-of-the-art [cite:@walsh22], we select the model so
+as to maximize the area under the ROC curve.
+
+* Results
+
 
 #+print_bibliography:

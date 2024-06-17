@@ -192,9 +192,11 @@ class BreastDataset(Dataset):
 
         return {"image": image, "orig_image": orig_image}
 
-    def __getitem__(self, i):
+    def from_breast_id(self, breast_id):
+        meta = self.meta.loc[self.meta.breast_id == breast_id]
+        return self._make_sample(meta)
 
-        meta = self.meta.loc[self.meta.breast_id == self.meta.breast_id.unique()[i]]
+    def _make_sample(self, meta):
         # edge case: some patients have a single view
         # we choose to duplicate the image to match the number of views
         # available in dominant case
@@ -229,6 +231,12 @@ class BreastDataset(Dataset):
             res.update({"orig_images": orig_images})
 
         return res
+
+    def __getitem__(self, i):
+
+        meta = self.meta.loc[self.meta.breast_id == self.meta.breast_id.unique()[i]]
+
+        return self._make_sample(meta)
 
     @staticmethod
     def collate_fn(samples: list[dict]):
