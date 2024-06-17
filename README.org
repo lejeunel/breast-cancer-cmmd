@@ -2,8 +2,6 @@
 
 * Usage & Configuration
 
-** On Host Machine
-
 - Install [[https://python-poetry.org/docs/#installation][Poetry]] in user-space.
 - move to project's root and install project with:
 
@@ -20,6 +18,8 @@ our pipeline. The root endpoint is documented at:
 #+begin_src shell
 python hmtest/main.py --help
 #+end_src
+
+** CMMD Dataset Construction Pipeline
 
 *** Selecting Series and Merging Annotations
 
@@ -53,11 +53,32 @@ python hmtest/main.py cmmd build-per-image-meta <data-dir>/meta-annotated.csv <d
 
 *** Convert images
 
-Last, we convert each image to 8-bit in PNG format:
+We convert each image to 8-bit in PNG format:
 
 #+begin_src shell
 python hmtest/main.py cmmd dicom-to-png <data-dir>/meta-images.csv <data-dir>/dicom <data-dir>/png
 #+end_src
+
+*** Making train/val/test Splits
+Last, we construct training, validation, and testing splits with:
+
+#+begin_src shell
+python hmtest/main.py ml split <data-dir>/meta-images.csv <data-dir>/meta-images-split.csv 0.2 0.2
+#+end_src
+
+** Training
+
+All our models can be trained using commands of the following form:
+
+#+begin_src shell
+python hmtest/main.py ml train --cuda --fusion <fusion-mode> --lfabnorm <lfa> --lftype <lft> <data-dir>/meta-images-split.csv <data-dir>/png <run-dir> <experiment-name>
+#+end_src
+
+Where:
+- ~<lfabnorm>~ is the loss factor applied to the multi-label abnormality classification objective.
+- ~<lftype>~ is the loss factor applied to the tumor type classification objective.
+- ~<run-dir>~ is the root path where checkpoints, logs, and validation data will be stored.
+- ~<experiment-name>~ sets the name of the directory created in ~<run-dir>~.
 
 ** Using Docker and Make
 
