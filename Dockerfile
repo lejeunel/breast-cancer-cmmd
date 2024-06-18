@@ -20,9 +20,11 @@ RUN poetry install --no-interaction --no-root && rm -rf $POETRY_CACHE_DIR
 # The runtime image, used to just run the code provided its virtual environment
 FROM python:3.12-slim-bookworm as runtime
 
-ENV VIRTUAL_ENV=/app/.venv \
-    PATH="/app/.venv/bin:$PATH"
+ENV VIRTUAL_ENV=/app/.venv
+ENV PATH="$VIRTUAL_ENV:$VIRTUAL_ENV/bin:$PATH"
 
 COPY --from=builder ${VIRTUAL_ENV} ${VIRTUAL_ENV}
 
 COPY breastclf ./breastclf
+
+RUN ln -s /breastclf $VIRTUAL_ENV/lib/python3.12/site-packages/breastclf

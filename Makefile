@@ -1,8 +1,8 @@
 DOCKER_EXEC := docker
+PYTHON_EXEC := python
 DOCKER_IMAGE := lejeunel379/breastclf
 VERSION := $(shell git describe --always --dirty --long)
 DOCKER_TAGGED_IMAGE := $(DOCKER_IMAGE):$(VERSION)
-POETRY_RUN := poetry run python
 
 BREASTCLF_DATA_DIR ?= ./data
 BREASTCLF_RUN_DIR ?= ./runs
@@ -17,6 +17,11 @@ DOCKER_RUN := $(DOCKER_EXEC) \
 default:
 	echo "See readme"
 
+dirs:
+	mkdir -p $(BREASTCLF_DATA_DIR)/dicom
+	mkdir -p $(BREASTCLF_DATA_DIR)/png
+	mkdir -p $(BREASTCLF_RUN_DIR)/png
+
 build-image:
 	$(DOCKER_EXEC) build . \
 		-t $(DOCKER_TAGGED_IMAGE)
@@ -24,22 +29,20 @@ build-image:
 push-image:
 	$(DOCKER_EXEC) push $(DOCKER_TAGGED_IMAGE)
 
-raw-data:
-	mkdir -p $(BREASTCLF_DATA_DIR)/dicom
-	$(DOCKER_RUN) $(POETRY_RUN) breastclf/main.py cmmd fetch-raw-data -w 32 /assets/meta.csv /data/dicom
+raw-data: dirs
+	$(DOCKER_RUN) $(PYTHON_EXEC) breastclf/main.py cmmd fetch-raw-data -w 32 /assets/meta.csv /data/dicom
 
 annotated-patient-meta: raw-data
-	$(DOCKER_RUN) $(POETRY_RUN) breastclf/main.py cmmd merge-meta-and-annotations /assets/meta.csv /assets/annotations.csv /data/meta-annotated.csv
+	$(DOCKER_RUN) $(PYTHON_EXEC) breastclf/main.py cmmd merge-meta-and-annotations /assets/meta.csv /assets/annotations.csv /data/meta-annotated.csv
 
 per-image-meta: annotated-patient-meta
-	$(DOCKER_RUN) $(POETRY_RUN) breastclf/main.py cmmd build-per-image-meta /data/meta-annotated.csv /data/dicom /data/meta-images.csv
+	$(DOCKER_RUN) $(PYTHON_EXEC) breastclf/main.py cmmd build-per-image-meta /data/meta-annotated.csv /data/dicom /data/meta-images.csv
 
 png-images: per-image-meta
-	mkdir -p $(BREASTCLF_DATA_DIR)/png
-	$(DOCKER_RUN) $(POETRY_RUN) breastclf/main.py cmmd dicom-to-png /data/meta-images.csv /data/dicom /data/png
+	$(DOCKER_RUN) $(PYTHON_EXEC) breastclf/main.py cmmd dicom-to-png /data/meta-images.csv /data/dicom /data/png
 
 ml-splitted-dataset: png-images
-	$(DOCKER_RUN) $(POETRY_RUN) breastclf/main.py ml split /data/meta-images.csv /data/meta-images-split.csv 0.2 0.2
+	$(DOCKER_RUN) $(PYTHON_EXEC) breastclf/main.py ml split /data/meta-images.csv /data/meta-images-split.csv 0.2 0.2
 
 
 clean:
