@@ -19,7 +19,6 @@ pyyaml = "^6.0.1"
 seaborn = "^0.13.2"
 matplotlib = "^3.9.0"
 torcheval = "^0.0.7"
-tensorboard = "^2.17.0"
 torch = {version = "^2.3.1+cu118", source = "pytorch_cu11"}
 torchvision = {version = "^0.18.1+cu118", source = "pytorch_cu11"}
 
