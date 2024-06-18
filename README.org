@@ -92,7 +92,8 @@ abstract-away the granular pipeline steps described above.
 Prior to run targets, you may customize the following environment variables.
 - ~BREASTCLF_RUN_DIR~: Path where checkpoints and results are stored.
 - ~BREASTCLF_DATA_DIR~: Path where raw-data, preprocessed images, and meta-data are stored.
-- ~BREASTCLF_USE_CUDA~: Flag to use nvidia GPU acceleration (recommended)
+- ~BREASTCLF_USE_CUDA~: Flag to use nvidia GPU acceleration (recommended).
+  You must first install the [[https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html][Nvidia Container Toolkit]] to use this feature.
 
 
 * Notes

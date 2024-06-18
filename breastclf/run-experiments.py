@@ -20,7 +20,8 @@ class Experiment:
 def run_experiments(
     best_only: Annotated[
         bool, typer.Option(help="Skip experimental models and only run best model")
-    ] = False
+    ] = False,
+    cuda: Annotated[bool, typer.Option(help="Use GPU acceleration")] = False,
 ):
     experiments = [
         Experiment("output", 0, "no_abnorm_fusion_output", False),
@@ -52,6 +53,7 @@ def run_experiments(
                 append_datetime_to_exp=False,
                 fusion=exp.fusion_mode,
                 lfabnorm=exp.lfabnorm,
+                cuda=cuda,
             )
         else:
             print(f"skipping already existing experiment at {root_runs / exp.name}")
@@ -61,6 +63,7 @@ def run_experiments(
                 meta_path=root_data / "meta-images-split.csv",
                 image_root_path=root_data / "png",
                 run_path=root_runs / exp.name,
+                cuda=cuda,
             )
         else:
             print(
