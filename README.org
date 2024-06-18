@@ -95,6 +95,12 @@ Prior to run targets, you may customize the following environment variables.
 - ~BREASTCLF_USE_CUDA~: Flag to use nvidia GPU acceleration (recommended).
   You must first install the [[https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html][Nvidia Container Toolkit]] to use this feature.
 
+  To prepare the dataset prior to training model, run:
+
+ #+begin_src shell
+make ml-splitted-dataset
+ #+end_src
+
 
 * Notes
 
