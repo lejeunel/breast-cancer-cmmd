@@ -82,6 +82,7 @@ Where:
 - ~<run-dir>~ is the root path where checkpoints, logs, and validation data will be stored.
 - ~<experiment-name>~ sets the name of the directory created in ~<run-dir>~.
 
+
 ** Using the docker engine
 
 We make available a Docker image on DockerHub, along with
@@ -89,9 +90,9 @@ a ~Makefile~ to facilitate reproducibility and
 abstract-away the granular pipeline steps described above.
 
 Prior to run targets, you may customize the following environment variables.
-Please refer to the above section to understand their meaning.
-- ~BREASTCLF_RUN_DIR~
-- ~BREASTCLF_DATA_DIR~
+- ~BREASTCLF_RUN_DIR~: Path where checkpoints and results are stored.
+- ~BREASTCLF_DATA_DIR~: Path where raw-data, preprocessed images, and meta-data are stored.
+- ~BREASTCLF_USE_CUDA~: Flag to use nvidia GPU acceleration (recommended)
 
 
 * Notes

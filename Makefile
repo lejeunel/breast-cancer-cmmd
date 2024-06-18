@@ -4,11 +4,16 @@ DOCKER_IMAGE := lejeunel379/breastclf
 VERSION := $(shell git describe --always --dirty --long)
 DOCKER_TAGGED_IMAGE := $(DOCKER_IMAGE):$(VERSION)
 
+DOCKER_GPU := $(if $(BREASTCLF_USE_CUDA),--gpus all,--gpus 0)
+PYTHON_GPU := $(if $(BREASTCLF_USE_CUDA),--cuda,)
 BREASTCLF_DATA_DIR ?= ./data
 BREASTCLF_RUN_DIR ?= ./runs
 
+
 DOCKER_RUN := $(DOCKER_EXEC) \
-	run -it \
+	run \
+	$(DOCKER_GPU) \
+	-it \
 	--mount type=bind,source=$(BREASTCLF_RUN_DIR),target=/runs \
 	--mount type=bind,source=$(BREASTCLF_DATA_DIR),target=/data \
 	--mount type=bind,source=./assets,target=/assets \
@@ -42,6 +47,9 @@ png-images: parse-and-merge-dicom
 
 ml-splitted-dataset: png-images
 	$(DOCKER_RUN) $(PYTHON_EXEC) breastclf/main.py ml split /data/meta-images.csv /data/meta-images-split.csv 0.2 0.2
+
+best-model: ml-splitted-dataset
+	$(DOCKER_RUN) $(PYTHON_EXEC) breastclf/run-experiments.py $(PYTHON_GPU) --best-only
 
 
 clean:
