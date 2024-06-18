@@ -1,56 +1,72 @@
-from hmtest.ml.train import train
-from hmtest.ml.test import test
-import pandas as pd
+from dataclasses import dataclass
 from pathlib import Path
+
+import typer
 from rich.pretty import pprint
+from typing_extensions import Annotated
 
-if __name__ == "__main__":
+from hmtest.ml.test import test
+from hmtest.ml.train import train
 
+
+@dataclass
+class Experiment:
+    fusion_mode: str
+    lfabnorm: float
+    name: str
+    is_best: bool
+
+
+def run_experiments(
+    best_only: Annotated[
+        bool, typer.Option(help="Skip experimental models and only run best model")
+    ] = False
+):
     experiments = [
-        ("output", 0, "no_abnorm_fusion_output"),
-        ("mean-feats", 0, "no_abnorm_fusion_mean"),
-        ("max-feats", 0, "no_abnorm_fusion_max"),
-        ("concat-feats", 0, "no_abnorm_fusion_cat"),
-        ("output", 1, "abnorm_fusion_output"),
-        ("mean-feats", 1, "abnorm_fusion_mean"),
-        ("max-feats", 1, "abnorm_fusion_max"),
-        ("concat-feats", 1, "abnorm_fusion_cat"),
+        Experiment("output", 0, "no_abnorm_fusion_output", False),
+        Experiment("mean-feats", 0, "no_abnorm_fusion_mean", False),
+        Experiment("max-feats", 0, "no_abnorm_fusion_max", False),
+        Experiment("concat-feats", 0, "no_abnorm_fusion_cat", False),
+        Experiment("output", 1, "abnorm_fusion_output", False),
+        Experiment("mean-feats", 1, "abnorm_fusion_mean", True),
+        Experiment("max-feats", 1, "abnorm_fusion_max", False),
+        Experiment("concat-feats", 1, "abnorm_fusion_cat", False),
     ]
-
-    df = pd.DataFrame.from_records(
-        [
-            {k: exp[i] for i, k in enumerate(["fusion_mode", "lfabnorm", "exp_name"])}
-            for exp in experiments
-        ]
-    )
 
     root_data = Path("data")
     root_runs = Path("runs")
 
-    for _, exp in df.iterrows():
+    for exp in experiments:
+        if best_only and not exp.is_best:
+            continue
+
         print("running experiment")
         pprint(exp)
 
-        if not (root_runs / exp.exp_name).exists():
+        if not (root_runs / exp.name).exists():
             train(
                 meta_path=root_data / "meta-images-split.csv",
                 image_root_path=root_data / "png",
                 out_root_path=root_runs,
-                exp_name=exp.exp_name,
+                exp_name=exp.name,
                 append_datetime_to_exp=False,
                 fusion=exp.fusion_mode,
                 lfabnorm=exp.lfabnorm,
             )
         else:
-            print(f"skipping already existing experiment at {root_runs / exp.exp_name}")
+            print(f"skipping already existing experiment at {root_runs / exp.name}")
 
-        if not (root_runs / exp.exp_name / "test-results.csv").exists():
+        if not (root_runs / exp.name / "test-results.csv").exists():
             test(
                 meta_path=root_data / "meta-images-split.csv",
                 image_root_path=root_data / "png",
-                run_path=root_runs / exp.exp_name,
+                run_path=root_runs / exp.name,
             )
         else:
             print(
-                f"skipping already existing testing results at {root_runs / exp.exp_name / 'test-results.csv'}"
+                f"skipping already existing testing results at {root_runs / exp.name / 'test-results.csv'}"
             )
+
+
+if __name__ == "__main__":
+    typer.run(run_experiments)
