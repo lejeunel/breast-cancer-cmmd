@@ -5,7 +5,7 @@ import pandas as pd
 import torch
 import typer
 import yaml
-from hmtest.ml.dataloader import BreastDataset
+from hmtest.ml.dataloader import make_dataloaders
 from hmtest.ml.model import BreastClassifier
 from rich.pretty import pprint
 from torch.utils.data import DataLoader
@@ -40,20 +40,14 @@ def test(
 
     assert meta_path.exists(), f"could not find meta-data file at {meta_path}"
 
-    dset = BreastDataset(
+    dloader = make_dataloaders(
         image_root_path,
         meta_path,
-        split="test",
+        meta_backup_path=run_path,
         image_size=cfg["image_size"],
-    )
-
-    effective_batch_size = batch_size // dset.n_views
-    dloader = DataLoader(
-        dset,
-        batch_size=effective_batch_size,
-        num_workers=n_workers,
-        collate_fn=BreastDataset.collate_fn,
-    )
+        batch_size=batch_size,
+        n_workers=n_workers,
+    )["test"]
 
     device = torch.device("cuda") if cuda else torch.device("cpu")
     model = BreastClassifier(fusion_mode=cfg["fusion"]).to(device)
@@ -69,6 +63,10 @@ def test(
 
     best_model = max(models, key=lambda m: m["score"])
     print(f"found best model: {best_model['path']} with score {best_model['score']}")
+
+    checkpoint = torch.load(best_model["path"])
+    print("loading weights from checkpoint")
+    model.load_state_dict(checkpoint["model_state_dict"])
 
     model.eval()
     meta = []
@@ -86,9 +84,10 @@ def test(
             pbar.set_description("[test]")
 
     out_path = run_path / "test-results.csv"
-    print(f"saving image-wise results to {out_path}")
     meta = pd.concat(meta)
 
     auc = roc_auc_score(meta["tgt_type"], meta["pred_type"])
     print(f"AUC-ROC: {auc}")
+
+    print(f"saving image-wise results to {out_path}")
     meta.to_csv(out_path, index=False)

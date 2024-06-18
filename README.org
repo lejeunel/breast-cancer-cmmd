@@ -19,7 +19,7 @@ our pipeline. The root endpoint is documented at:
 python hmtest/main.py --help
 #+end_src
 
-** CMMD Dataset Construction Pipeline
+** Pipeline Steps
 
 *** Selecting Series and Merging Annotations
 
@@ -75,50 +75,25 @@ python hmtest/main.py ml train --cuda --fusion <fusion-mode> --lfabnorm <lfa> --
 #+end_src
 
 Where:
+- ~<fusion-mode>~ sets the fusion strategy.
 - ~<lfabnorm>~ is the loss factor applied to the multi-label abnormality classification objective.
 - ~<lftype>~ is the loss factor applied to the tumor type classification objective.
 - ~<run-dir>~ is the root path where checkpoints, logs, and validation data will be stored.
 - ~<experiment-name>~ sets the name of the directory created in ~<run-dir>~.
 
-** Using Docker and Make
+* Docker Container
 
 We provide a ~Dockerfile~ along with a ~Makefile~ to facilitate reproducibility and
-abstract-away some pipeline steps.
+abstract-away the granular pipeline steps described above.
 
-Prior to run targets, you may setup environment variables:
-- ~HMTEST_RUN_DIR~: Where model weights and intermediate validation data will be stored.
-- ~HMTEST_DATA_DIR~: Where raw-data and meta-data are stored.
-
-If not set, these directories will be automatically created in project's root.
-
-Finally, you may run the data fetching pipeline with
-
-#+begin_src sh
-make ml-splitted-dataset
-#+end_src
+Prior to run targets, you may customize the following environment variables.
+Please refer to the above section to understand their meaning.
+- ~HMTEST_RUN_DIR~
+- ~HMTEST_DATA_DIR~
 
 * Notes
 
 https://stackoverflow.com/questions/25185405/using-gpu-from-a-docker-container
-
-** Preprocessing as described in Walsh et. al 2023
-- Triangle thresholding method
-- https://scikit-image.org/docs/stable/auto_examples/segmentation/plot_label.html
-- Flip images of right breasts so that all breasts are located at the left side of
-        the images.
-- The height is cropped to the size of the breast, and re-sized to 2048 pixels.
-- The aspect ratio is maintained between the height and width, but the right side of the
-        image was padded with zero-intensity pixels to give a square 2048 × 2048 image.
-- We applied histogram normalisation to the pixels’ intensities, enhancing the contrast of the
-images, and we scaled the values to the range ∈ [0, 1].
-
-
-** Methods
-- /Multi-view classification with convolutional neural networks/
-- /High-Resolution Breast Cancer Screening with Multi-View Deep Convolutional Neural Networks/
-  - Architecture tailored for high resolution (downsampling hurts!)
-  - Average features of each view before last fully-connected layer
-
 
 ** Baselines:
 - /A Comparison of Techniques for Class Imbalance in Deep Learning Classification of Breast Cancer/
@@ -126,8 +101,6 @@ images, and we scaled the values to the range ∈ [0, 1].
 - /Attention-Based Deep Learning System for Classification of Breast Lesions—Multimodal, Weakly Supervised Approach/
 
 ** TODO
-- TODO: Perform over-sampling of benignant class as in /A Comparison of Techniques for Class Imbalance in Deep Learning Classification of Breast Cancer/
-- TODO: Explain all steps included in Makefile in README for clarity
 - TODO: Set permission of files generated from docker container. They are now ~root:root~
 
 ** Questions / Next steps

@@ -122,7 +122,8 @@ split. We therefore make our own through the following steps:
 
 1. We discard all images that have no labels $y_t$ and $y_a$.
 2. We group all images by breast, i.e. each group contain two views of the same breast.
-3. We divide all groups using a stratified shuffled splitting strategy, where each split
+3. To perform cross-validation, we divide all groups using a stratified
+    shuffled splitting strategy, where each split
     must contain the same proportion of $y_t$ and $y_a$. Our splits contain $60$, $20$,
      and $20\%$ of images for the train, validation, and testing set, respectively.
 
@@ -182,12 +183,14 @@ We give an illustration of our model in Fig. [[fig:model]].
 ** Preprocessing, Training, and Validation
 
 We convert the original images given as DICOM series into 8-bit images,
-and rescale these to $1024 \times 1024$ pixels. We found that this
+and rescale these from $1914 \times 2294$ to $1024 \times 1024$ pixels. We found that this
 is a good compromise as it conserves most fine-grained details while
 reducing computational burden.
 
 Next, we apply the triangle thresholding approach described in [cite:@walsh22]
 to remove background noise.
+
+Finally, we apply vertical mirroring to right breasts so as to align them with left breasts.
 
 We feed our model with mini-batches that combine both views of a given breast, and
 apply our fusion operators prior to computing the gradients.
@@ -196,7 +199,7 @@ Our classification tasks are optimized as follows:
 
 1. *Type*: Classifies breasts as Malignant/Benign using a Binary Cross-Entropy.
 2. *Abnormality*: Classifies breasts as Mass *and/or* calcification using a Binary Cross-Entropy
-   in a multi-label fashion.
+   in a multi-label fashion, i.e. we apply the sigmoid operator to the outputs.
 
 We train both our backbone and classification heads in an end-to-end regime through
 gradient descent using a cross-validation strategy.
@@ -211,7 +214,7 @@ When combining different objectives, we set weighing factors to
 the losses to $1$.
 
 For comparison with the state-of-the-art [cite:@walsh22], we select the model so
-as to maximize the area under the ROC curve.
+as to maximize the area under the curve (ROC).
 
 * Results
 

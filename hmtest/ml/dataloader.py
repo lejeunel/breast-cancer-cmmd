@@ -275,7 +275,7 @@ def make_dataloaders(
     n_batches_per_epoch=30,
 ):
 
-    splits = ["train", "val"]
+    splits = ["train", "val", "test"]
 
     datasets = {
         s: BreastDataset(
