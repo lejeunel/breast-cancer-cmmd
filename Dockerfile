@@ -1,43 +1,28 @@
-FROM python:3.12.0-bookworm as python-base
+# The builder image, used to build the virtual environment
+FROM python:3.12.0-bookworm as builder
+
+RUN pip install poetry==1.8.2
 
 # https://python-poetry.org/docs#ci-recommendations
-ENV POETRY_VERSION=1.8.2 \
-    POETRY_HOME=/opt/poetry \
-    POETRY_VENV=/opt/poetry-venv \
-    POETRY_CACHE_DIR=/opt/.cache
-
-# Create stage for Poetry installation
-FROM python-base as poetry-base
-
-# Creating a virtual environment just for poetry and install it with pip
-RUN python3 -m venv $POETRY_VENV \
-	&& $POETRY_VENV/bin/pip install -U pip setuptools \
-	&& $POETRY_VENV/bin/pip install poetry==${POETRY_VERSION}
-
-# Create a new stage from the base python image
-FROM python-base as builder-base
-
-# This fixes a bug in xdg-desktop-menu
-RUN mkdir /usr/share/desktop-directories/
-
-# Copy Poetry to app image
-COPY --from=poetry-base ${POETRY_VENV} ${POETRY_VENV}
-
-# Add Poetry to PATH
-ENV PATH="${PATH}:${POETRY_VENV}/bin"
+ENV POETRY_NO_INTERACTION=1 \
+    POETRY_VIRTUALENVS_IN_PROJECT=1 \
+    POETRY_VIRTUALENV_CREATE=1 \
+    POETRY_CACHE_DIR=/tmp/poetry_cache
 
 WORKDIR /app
 
 # Copy Dependencies
-COPY poetry.lock pyproject.toml README.org breastclf ./
-COPY breastclf/* ./breastclf/
-
-# [OPTIONAL] Validate the project is properly configured
-RUN poetry check
+COPY poetry.lock pyproject.toml ./
 
 # Install Dependencies
-RUN poetry install --no-interaction --no-cache
+RUN poetry install --no-interaction --no-root && rm -rf $POETRY_CACHE_DIR
 
-# Copy app and assets
-ADD breastclf /app/breastclf
-ADD report /app/report
+# The runtime image, used to just run the code provided its virtual environment
+FROM python:3.12-slim-bookworm as runtime
+
+ENV VIRTUAL_ENV=/app/.venv \
+    PATH="/app/.venv/bin:$PATH"
+
+COPY --from=builder ${VIRTUAL_ENV} ${VIRTUAL_ENV}
+
+COPY breast-cancer-cmmd ./breast-cancer-cmmd
