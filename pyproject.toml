@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "hera-mi-test"
+name = "breast-cancer-cmmd"
 version = "0.1.0"
 description = "Breast cancer classification"
 authors = ["Laurent Lejeune <me@lejeunel.org>"]
