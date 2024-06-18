@@ -1,6 +1,7 @@
 #+title: A Deep-Learning Approach to Breast Cancer Screening from Mammography Images
 
-* Usage & Configuration
+* Usage
+** Using a virtual environment
 
 - Install [[https://python-poetry.org/docs/#installation][Poetry]] in user-space.
 - move to project's root and install project with:
@@ -19,9 +20,9 @@ our pipeline. The root endpoint is documented at:
 python breastclf/main.py --help
 #+end_src
 
-** Pipeline Steps
+*** Pipeline Steps
 
-*** Selecting Series and Merging Annotations
+**** Selecting Series and Merging Annotations
 
 We provide a base meta-data file that contains references to the original CMMD dataset at
 ~assets/meta.csv~.
@@ -34,7 +35,7 @@ First, we merge our base meta-data file with annotations with:
 python breastclf/main.py cmmd merge-meta-and-annotations assets/meta.csv assets/annotations.csv <data-dir>/meta-annotated.csv
 #+end_src
 
-*** Downloading Raw-data
+**** Downloading Raw-data
 
 The raw DICOM files are publicly available on ~cancerimagingarchive.net~.
 We provide a routine to download these. We recommend setting ~n-threads~
@@ -44,14 +45,14 @@ to >16 to accelerate download time.
 python breastclf/main.py cmmd fetch-raw-data -w <n-threads> <data-dir>/meta-annotated.csv <data-dir>/dicom
 #+end_src
 
-*** Parse DICOM series
+**** Parse DICOM series
 Next, we parse each dicom file to obtain some relevant meta-data:
 
 #+begin_src shell
 python breastclf/main.py cmmd build-per-image-meta <data-dir>/meta-annotated.csv <data-dir>/meta-images.csv
 #+end_src
 
-*** Convert images
+**** Convert images
 
 We convert each image to 8-bit in PNG format:
 
@@ -59,14 +60,14 @@ We convert each image to 8-bit in PNG format:
 python breastclf/main.py cmmd dicom-to-png <data-dir>/meta-images.csv <data-dir>/dicom <data-dir>/png
 #+end_src
 
-*** Making train/val/test Splits
+**** Making train/val/test Splits
 Last, we construct training, validation, and testing splits with:
 
 #+begin_src shell
 python breastclf/main.py ml split <data-dir>/meta-images.csv <data-dir>/meta-images-split.csv 0.2 0.2
 #+end_src
 
-** Training
+*** Training
 
 All our models can be trained using commands of the following form:
 
@@ -81,7 +82,7 @@ Where:
 - ~<run-dir>~ is the root path where checkpoints, logs, and validation data will be stored.
 - ~<experiment-name>~ sets the name of the directory created in ~<run-dir>~.
 
-* Docker Container
+** Using the docker engine
 
 We provide a ~Dockerfile~ along with a ~Makefile~ to facilitate reproducibility and
 abstract-away the granular pipeline steps described above.
@@ -90,6 +91,7 @@ Prior to run targets, you may customize the following environment variables.
 Please refer to the above section to understand their meaning.
 - ~BREASTCLF_RUN_DIR~
 - ~BREASTCLF_DATA_DIR~
+
 
 * Notes
 
