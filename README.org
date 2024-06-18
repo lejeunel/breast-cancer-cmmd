@@ -84,7 +84,8 @@ Where:
 
 ** Using the docker engine
 
-We provide a ~Dockerfile~ along with a ~Makefile~ to facilitate reproducibility and
+We make available a Docker image on DockerHub, along with
+a ~Makefile~ to facilitate reproducibility and
 abstract-away the granular pipeline steps described above.
 
 Prior to run targets, you may customize the following environment variables.

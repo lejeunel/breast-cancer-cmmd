@@ -1,5 +1,5 @@
 DOCKER_EXEC := docker
-DOCKER_IMAGE := lejeunel379/hmi
+DOCKER_IMAGE := lejeunel379/breastclf
 VERSION := $(shell git describe --always --dirty --long)
 DOCKER_TAGGED_IMAGE := $(DOCKER_IMAGE):$(VERSION)
 POETRY_RUN := poetry run python

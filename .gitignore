@@ -6,3 +6,8 @@
 /breastclf/ml/loss.py
 report/.auctex-auto/**
 **/.DS_Store
+/assets/.~lock.annotations.csv#
+/assets/papers/
+/data_/
+/runs_/
+/report/report.pdf
