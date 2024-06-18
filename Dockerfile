@@ -25,4 +25,4 @@ ENV VIRTUAL_ENV=/app/.venv \
 
 COPY --from=builder ${VIRTUAL_ENV} ${VIRTUAL_ENV}
 
-COPY breast-cancer-cmmd ./breast-cancer-cmmd
+COPY breastclf ./breastclf
