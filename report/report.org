@@ -84,7 +84,7 @@ training phase.
 ** Exploration
 
 #+BEGIN_SRC python :session :exports results :results none
-from hmtest.ml.dataloader import DataLoader
+from breastclf.ml.dataloader import DataLoader
 image_size = 320
 
 dset = DataLoader(data_path / 'png', data_path / 'meta-images-split.csv',

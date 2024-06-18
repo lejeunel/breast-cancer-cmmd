@@ -1,7 +1,7 @@
 from torch import nn
 import torch
 import torchvision
-from hmtest.ml.dataloader import Batch
+from breastclf.ml.dataloader import Batch
 
 
 def make_resnet34_feat_extractor() -> tuple[nn.Module, int]:

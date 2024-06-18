@@ -9,7 +9,7 @@ from skimage.transform import resize
 from sklearn.preprocessing import LabelBinarizer, MultiLabelBinarizer
 from torch.utils.data import Dataset, DataLoader, RandomSampler
 import torch
-from hmtest.ml import image_preprocessing as impp
+from breastclf.ml import image_preprocessing as impp
 
 
 @dataclass

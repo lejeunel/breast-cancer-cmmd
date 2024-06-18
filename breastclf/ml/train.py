@@ -3,12 +3,12 @@ from pathlib import Path
 from typing import Optional
 
 import typer
-from hmtest.ml.callbacks import make_callbacks
-from hmtest.ml.dataloader import make_dataloaders
-from hmtest.ml.utils import save_to_yaml
-from hmtest.ml.model import BreastClassifier
+from breastclf.ml.callbacks import make_callbacks
+from breastclf.ml.dataloader import make_dataloaders
+from breastclf.ml.utils import save_to_yaml
+from breastclf.ml.model import BreastClassifier
 from typing_extensions import Annotated
-from hmtest.ml.trainer import Trainer
+from breastclf.ml.trainer import Trainer
 from torch.nn import BCELoss
 from torch.optim import Adam
 from torch.utils.tensorboard import SummaryWriter

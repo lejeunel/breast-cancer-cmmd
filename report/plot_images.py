@@ -1,4 +1,4 @@
-from hmtest.ml.dataloader import BreastDataset
+from breastclf.ml.dataloader import BreastDataset
 from pathlib import Path
 import matplotlib.pyplot as plt
 

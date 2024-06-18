@@ -5,8 +5,8 @@ import typer
 from rich.pretty import pprint
 from typing_extensions import Annotated
 
-from hmtest.ml.test import test
-from hmtest.ml.train import train
+from breastclf.ml.test import test
+from breastclf.ml.train import train
 
 
 @dataclass

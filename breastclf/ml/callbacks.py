@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from hmtest.ml.dataloader import Batch
-from hmtest.ml.metrics import BinaryPrecisionAtFixedRecall
+from breastclf.ml.dataloader import Batch
+from breastclf.ml.metrics import BinaryPrecisionAtFixedRecall
 import torch
 from torcheval import metrics
 from sklearn.metrics import ConfusionMatrixDisplay, multilabel_confusion_matrix

@@ -29,8 +29,8 @@ ENV PATH="${PATH}:${POETRY_VENV}/bin"
 WORKDIR /app
 
 # Copy Dependencies
-COPY poetry.lock pyproject.toml README.org hmtest ./
-COPY hmtest/* ./hmtest/
+COPY poetry.lock pyproject.toml README.org breastclf ./
+COPY breastclf/* ./breastclf/
 
 # [OPTIONAL] Validate the project is properly configured
 RUN poetry check
@@ -39,5 +39,5 @@ RUN poetry check
 RUN poetry install --no-interaction --no-cache
 
 # Copy app and assets
-ADD hmtest /app/hmtest
+ADD breastclf /app/breastclf
 ADD report /app/report

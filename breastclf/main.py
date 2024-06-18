@@ -3,8 +3,8 @@ from typing_extensions import Annotated
 from pathlib import Path
 from typing import Optional
 
-from hmtest import cmmd
-from hmtest import ml
+from breastclf import cmmd
+from breastclf import ml
 
 app = typer.Typer()
 app.add_typer(

@@ -16,7 +16,7 @@ We make available a serie of CLI endpoints to execute the different phases of
 our pipeline. The root endpoint is documented at:
 
 #+begin_src shell
-python hmtest/main.py --help
+python breastclf/main.py --help
 #+end_src
 
 ** Pipeline Steps
@@ -31,7 +31,7 @@ patients.
 First, we merge our base meta-data file with annotations with:
 
 #+begin_src shell
-python hmtest/main.py cmmd merge-meta-and-annotations assets/meta.csv assets/annotations.csv <data-dir>/meta-annotated.csv
+python breastclf/main.py cmmd merge-meta-and-annotations assets/meta.csv assets/annotations.csv <data-dir>/meta-annotated.csv
 #+end_src
 
 *** Downloading Raw-data
@@ -41,14 +41,14 @@ We provide a routine to download these. We recommend setting ~n-threads~
 to >16 to accelerate download time.
 
 #+begin_src shell
-python hmtest/main.py cmmd fetch-raw-data -w <n-threads> <data-dir>/meta-annotated.csv <data-dir>/dicom
+python breastclf/main.py cmmd fetch-raw-data -w <n-threads> <data-dir>/meta-annotated.csv <data-dir>/dicom
 #+end_src
 
 *** Parse DICOM series
 Next, we parse each dicom file to obtain some relevant meta-data:
 
 #+begin_src shell
-python hmtest/main.py cmmd build-per-image-meta <data-dir>/meta-annotated.csv <data-dir>/meta-images.csv
+python breastclf/main.py cmmd build-per-image-meta <data-dir>/meta-annotated.csv <data-dir>/meta-images.csv
 #+end_src
 
 *** Convert images
@@ -56,14 +56,14 @@ python hmtest/main.py cmmd build-per-image-meta <data-dir>/meta-annotated.csv <d
 We convert each image to 8-bit in PNG format:
 
 #+begin_src shell
-python hmtest/main.py cmmd dicom-to-png <data-dir>/meta-images.csv <data-dir>/dicom <data-dir>/png
+python breastclf/main.py cmmd dicom-to-png <data-dir>/meta-images.csv <data-dir>/dicom <data-dir>/png
 #+end_src
 
 *** Making train/val/test Splits
 Last, we construct training, validation, and testing splits with:
 
 #+begin_src shell
-python hmtest/main.py ml split <data-dir>/meta-images.csv <data-dir>/meta-images-split.csv 0.2 0.2
+python breastclf/main.py ml split <data-dir>/meta-images.csv <data-dir>/meta-images-split.csv 0.2 0.2
 #+end_src
 
 ** Training
@@ -71,7 +71,7 @@ python hmtest/main.py ml split <data-dir>/meta-images.csv <data-dir>/meta-images
 All our models can be trained using commands of the following form:
 
 #+begin_src shell
-python hmtest/main.py ml train --cuda --fusion <fusion-mode> --lfabnorm <lfa> --lftype <lft> <data-dir>/meta-images-split.csv <data-dir>/png <run-dir> <experiment-name>
+python breastclf/main.py ml train --cuda --fusion <fusion-mode> --lfabnorm <lfa> --lftype <lft> <data-dir>/meta-images-split.csv <data-dir>/png <run-dir> <experiment-name>
 #+end_src
 
 Where:
@@ -88,8 +88,8 @@ abstract-away the granular pipeline steps described above.
 
 Prior to run targets, you may customize the following environment variables.
 Please refer to the above section to understand their meaning.
-- ~HMTEST_RUN_DIR~
-- ~HMTEST_DATA_DIR~
+- ~BREASTCLF_RUN_DIR~
+- ~BREASTCLF_DATA_DIR~
 
 * Notes
 

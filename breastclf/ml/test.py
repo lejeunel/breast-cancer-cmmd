@@ -5,8 +5,8 @@ import pandas as pd
 import torch
 import typer
 import yaml
-from hmtest.ml.dataloader import make_dataloaders
-from hmtest.ml.model import BreastClassifier
+from breastclf.ml.dataloader import make_dataloaders
+from breastclf.ml.model import BreastClassifier
 from rich.pretty import pprint
 from sklearn.metrics import (
     roc_auc_score,
