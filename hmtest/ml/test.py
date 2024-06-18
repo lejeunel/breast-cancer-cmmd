@@ -8,7 +8,11 @@ import yaml
 from hmtest.ml.dataloader import make_dataloaders
 from hmtest.ml.model import BreastClassifier
 from rich.pretty import pprint
-from sklearn.metrics import roc_auc_score
+from sklearn.metrics import (
+    roc_auc_score,
+    f1_score,
+    average_precision_score,
+)
 from tqdm import tqdm
 from typing_extensions import Annotated
 
@@ -86,5 +90,25 @@ def test(
     meta = meta.drop_duplicates("breast_id")
     meta.drop(columns=["filename", "image_path", "index", "level_0"], inplace=True)
 
-    print(f"saving image-wise results to {out_path}")
+    print(f"saving breast-wise results to {out_path}")
     meta.to_csv(out_path, index=False)
+
+    agg_results = pd.Series()
+    for field_name, metric_fn, thr in [
+        ("AUC(ROC)", roc_auc_score, None),
+        ("F1", f1_score, 0.5),
+        ("mAP", average_precision_score, None),
+    ]:
+        y_true = meta["tgt_type"]
+        y_pred = meta["pred_type"]
+        if thr:
+            y_pred = y_pred >= thr
+        agg_results[field_name] = metric_fn(y_true, y_pred)
+
+    agg_results["fusion_mode"] = cfg["fusion"]
+    agg_results["lfabnorm"] = cfg["lfabnorm"] > 0
+    agg_results["lftype"] = cfg["lftype"] > 0
+
+    out_path = run_path / "test-agg-results.csv"
+    print(f"saving aggregate performance results to {out_path}")
+    pd.DataFrame(agg_results).T.to_csv(out_path, index=False)

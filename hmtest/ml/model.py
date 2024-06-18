@@ -42,10 +42,11 @@ class BreastClassifier(nn.Module):
         n_types: int = 2,
         dropout_rate: float = 0.0,
         fusion_mode="features",
+        n_hidden_units=128,
     ):
         super().__init__()
 
-        allowed_fusion_modes = ["mean-feats", "max-feats", "output"]
+        allowed_fusion_modes = ["mean-feats", "max-feats", "concat-feats", "output"]
         assert (
             fusion_mode in allowed_fusion_modes
         ), f"fusion_mode must be in {allowed_fusion_modes}"
@@ -53,22 +54,34 @@ class BreastClassifier(nn.Module):
         self.fusion_mode = fusion_mode
 
         self.feat_extractor, n_feats = make_resnet34_feat_extractor()
+
+        if self.fusion_mode == "concat-feats":
+            n_feats *= 2
+
         self.abnorm_clf = nn.Sequential(
-            nn.Linear(n_feats, n_abnormalities),
+            nn.Linear(n_feats, n_hidden_units),
+            nn.ReLU(),
+            nn.Linear(n_hidden_units, n_hidden_units),
+            nn.ReLU(),
+            nn.Linear(n_hidden_units, n_abnormalities),
         )
 
         self.type_clf = nn.Sequential(
-            nn.Linear(n_feats, n_types - 1),
+            nn.Linear(n_feats, n_hidden_units),
+            nn.ReLU(),
+            nn.Linear(n_hidden_units, n_hidden_units),
+            nn.ReLU(),
+            nn.Linear(n_hidden_units, n_types - 1),
         )
 
         self.type_post_clf = nn.Sequential(
             nn.Linear(n_abnormalities + n_types - 1, 64),
             nn.ReLU(),
-            nn.Linear(64, 64),
+            nn.Linear(n_hidden_units, n_hidden_units),
             nn.ReLU(),
             nn.Linear(
-                64,
-                1,
+                n_hidden_units,
+                n_types - 1,
             ),
         )
 
@@ -91,6 +104,9 @@ class BreastClassifier(nn.Module):
                 feats = feats.mean(dim=0)
             elif self.fusion_mode == "max-feats":
                 feats = feats.max(dim=0)[0]
+            elif self.fusion_mode == "concat-feats":
+                feats = torch.cat([f for f in feats])
+
             logits_type = self.type_clf(feats.squeeze())
             logits_abnorm = self.abnorm_clf(feats.squeeze())
 

@@ -45,7 +45,7 @@ def train(
     fusion: Annotated[
         str,
         typer.Option(
-            help="breast-wise fusion mode: ['max-feats', 'mean-feats', 'output']"
+            help="breast-wise fusion mode: ['max-feats', 'mean-feats', 'output', 'concat-feats']"
         ),
     ] = "output",
     lftype: Annotated[float, typer.Option(help="loss factor for type")] = 1.0,
