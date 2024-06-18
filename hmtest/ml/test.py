@@ -8,11 +8,9 @@ import yaml
 from hmtest.ml.dataloader import make_dataloaders
 from hmtest.ml.model import BreastClassifier
 from rich.pretty import pprint
-from torch.utils.data import DataLoader
+from sklearn.metrics import roc_auc_score
 from tqdm import tqdm
 from typing_extensions import Annotated
-
-from sklearn.metrics import roc_auc_score
 
 
 def test(
@@ -23,7 +21,6 @@ def test(
         int, typer.Option(help="Num of parallel processes in data loader")
     ] = 8,
     cuda: Annotated[Optional[bool], typer.Option(help="use GPU")] = True,
-    batch_size: Annotated[int, typer.Option()] = 16,
 ):
     """
     Testing routine.
@@ -45,7 +42,7 @@ def test(
         meta_path,
         meta_backup_path=run_path,
         image_size=cfg["image_size"],
-        batch_size=batch_size,
+        batch_size=cfg["batch_size"],
         n_workers=n_workers,
     )["test"]
 
@@ -86,8 +83,8 @@ def test(
     out_path = run_path / "test-results.csv"
     meta = pd.concat(meta)
 
-    auc = roc_auc_score(meta["tgt_type"], meta["pred_type"])
-    print(f"AUC-ROC: {auc}")
+    meta = meta.drop_duplicates("breast_id")
+    meta.drop(columns=["filename", "image_path", "index", "level_0"], inplace=True)
 
     print(f"saving image-wise results to {out_path}")
     meta.to_csv(out_path, index=False)

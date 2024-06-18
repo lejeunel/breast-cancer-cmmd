@@ -63,7 +63,7 @@ def train(
     else:
         run_path = out_root_path / exp_name
 
-    run_path.mkdir(exist_ok=True)
+    run_path.mkdir()
 
     save_to_yaml(run_path / "cfg.yaml", locals())
 
