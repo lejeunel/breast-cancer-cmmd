@@ -154,8 +154,8 @@ labels are assigned to studies (and not images).
 
 ** Auxiliary Task
 
-In addition to our main task of classifying tumors as malignant/benign, we
-further investigate on the relevance of adding the auxiliary task of identifying
+Inspired by [cite:@tardy22], we investigate the relevance of multi-task learning,
+and add to our main task the auxiliary task of identifying
 abnormalities.
 
 In particular, we add a second classifier head to our backbone, and train the whole

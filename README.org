@@ -106,5 +106,5 @@ https://stackoverflow.com/questions/25185405/using-gpu-from-a-docker-container
 ** TODO
 - TODO: Set permission of files generated from docker container. They are now ~root:root~
 - Implement/document testing phase output:
-  - ~test-results.csv~: columns with raw breast-wise predictions of type and abnormality
+  - ~test-results.csv~: columns with raw breast-wise predictions of type *and abnormality*
   - ~test-agg-results.csv~: Pre-defined performance metrics (AUC, MMC, F1, ...)

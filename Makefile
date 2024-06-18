@@ -20,7 +20,6 @@ default:
 dirs:
 	mkdir -p $(BREASTCLF_DATA_DIR)/dicom
 	mkdir -p $(BREASTCLF_DATA_DIR)/png
-	mkdir -p $(BREASTCLF_RUN_DIR)/png
 
 build-image:
 	$(DOCKER_EXEC) build . \
@@ -35,10 +34,10 @@ raw-data: dirs
 annotated-patient-meta: raw-data
 	$(DOCKER_RUN) $(PYTHON_EXEC) breastclf/main.py cmmd merge-meta-and-annotations /assets/meta.csv /assets/annotations.csv /data/meta-annotated.csv
 
-per-image-meta: annotated-patient-meta
+parse-and-merge-dicom: annotated-patient-meta
 	$(DOCKER_RUN) $(PYTHON_EXEC) breastclf/main.py cmmd build-per-image-meta /data/meta-annotated.csv /data/dicom /data/meta-images.csv
 
-png-images: per-image-meta
+png-images: parse-and-merge-dicom
 	$(DOCKER_RUN) $(PYTHON_EXEC) breastclf/main.py cmmd dicom-to-png /data/meta-images.csv /data/dicom /data/png
 
 ml-splitted-dataset: png-images

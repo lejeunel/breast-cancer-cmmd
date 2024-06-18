@@ -125,6 +125,10 @@ def merge_meta_and_annotations(meta: Path, annotations: Path, out: Path):
     """
     import pandas as pd
 
+    if out.exists():
+        print(f"found file at {out}, quitting")
+        return
+
     meta = pd.read_csv(meta)
     annotations = pd.read_csv(annotations)
     merged = pd.merge(meta, annotations, left_on="Subject ID", right_on="ID1")
@@ -144,7 +148,7 @@ def merge_meta_and_annotations(meta: Path, annotations: Path, out: Path):
 
     merged.side = merged.side.replace({"L": "left", "R": "right"})
 
-    print(f"saving merge meta-data to {out}")
+    print(f"saving merged meta-data to {out}")
     merged.to_csv(out, index=False)
 
 
