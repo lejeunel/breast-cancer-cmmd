@@ -126,7 +126,7 @@ def merge_meta_and_annotations(meta: Path, annotations: Path, out: Path):
     import pandas as pd
 
     if out.exists():
-        print(f"found file at {out}, quitting")
+        print(f"found file {out}, we are done.")
         return
 
     meta = pd.read_csv(meta)
@@ -205,7 +205,7 @@ def build_per_image_meta(meta: Path, dicom_root_path: Path, out: Path):
 
     """
     if out.exists():
-        print(f"found file at {out}, quitting")
+        print(f"found file {out}, we are done.")
         return
 
     meta = pd.read_csv(meta)

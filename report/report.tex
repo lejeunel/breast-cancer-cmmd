@@ -1,4 +1,4 @@
-% Created 2024-06-18 Tue 19:07
+% Created 2024-06-20 Thu 00:55
 % Intended LaTeX compiler: pdflatex
 \documentclass[11pt]{article}
 \usepackage[utf8]{inputenc}
@@ -34,7 +34,7 @@
 
 
 \section{Introduction}
-\label{sec:orge892df4}
+\label{sec:org7b1810c}
 \begin{itemize}
 \item \autocite{crawshaw20}: Multi-Task Learning with Deep Neural Networks: A Survey
 \item \autocite{dai15}: Instance-aware Semantic Segmentation via Multi-task Network Cascades
@@ -43,10 +43,10 @@ Simultaneous Depth Estimation and Scene Parsing
 \end{itemize}
 
 \section{The Chinese Mammography Database (CMMD)}
-\label{sec:org11f70fa}
+\label{sec:orgc5e62ec}
 
 \subsection{\label{screening}Screening}
-\label{sec:orgb4ead93}
+\label{sec:org85becb5}
 
 We use the publicly available Chinese Mammography Database (CMMD) \autocite{cai23},
 which originally contains \(\approx 1871\) patients screened for breast cancer.
@@ -62,7 +62,7 @@ prior to mammography.
 This reduces our dataset to \(1775\) patients.
 
 \subsection{Annotations}
-\label{sec:orgfa2da89}
+\label{sec:org8f92a14}
 
 Each \textbf{study} is analyzed by domain experts so as to assign the following
 target variables:
@@ -75,7 +75,7 @@ subtype information (possibly missing).
 \end{itemize}
 
 \subsection{\label{limitations}Limitations}
-\label{sec:orgd8b9d8a}
+\label{sec:org805cda6}
 
 The CMMD dataset is challenging to use in a Machine Learning setting.
 Indeed, for a ML practitioner, coherent labels are crucial to fully exploit
@@ -106,7 +106,7 @@ we choose to investigate on simple arithmetic operations as part of the
 training phase.
 
 \subsection{Exploration}
-\label{sec:orge74972b}
+\label{sec:org9055f97}
 
 \begin{figure}[htbp]
 \centering
@@ -121,7 +121,7 @@ training phase.
 \end{figure}
 
 \subsection{\label{split}Curation and Splitting}
-\label{sec:org19135dd}
+\label{sec:org7d2c995}
 
 As we endeavour to use the CMMD dataset to produce an ML solution, we
 perform a curation step and split all images in a train, validation, and testing split.
@@ -142,7 +142,7 @@ must contain the same proportion of \(y_t\) and \(y_a\). Our splits contain \(60
 \end{enumerate}
 
 \section{Methods}
-\label{sec:orgb46274f}
+\label{sec:orga1671c9}
 
 We aim to learn a predictor that determines whether a given mammography study
 contains a malignant or benign tumor.
@@ -153,7 +153,7 @@ and follows with two parallel classification heads.
 We now develop our composite objectives and multi-view classification approaches.
 
 \subsection{\label{multiview}Learning with Multiple Views}
-\label{sec:org1830317}
+\label{sec:orgdee69c3}
 
 Following previous works in breast cancer screening \autocite{geras17} \autocite{seeland21},
 we implement and test several strategies (\textbf{fusion mode}) to handle the fact that
@@ -169,7 +169,7 @@ applying back-propagation.
 \end{enumerate}
 
 \subsection{Auxiliary Task}
-\label{sec:orgd66358d}
+\label{sec:org5b820e1}
 
 Inspired by \autocite{tardy22}, we investigate the relevance of multi-task learning,
 and add to our main task the auxiliary task of identifying
@@ -186,7 +186,7 @@ Note that as shown in Fig. \ref{fig:distributions}, this auxiliary task belongs 
 show more than one class.
 
 \subsection{Architecture}
-\label{sec:orgdabd2a5}
+\label{sec:org9f2deca}
 
 Our model is a Convolution Neural Network based on the ResNet34
 architecture \autocite{he15}, where the bottleneck gives \(512\) features.
@@ -201,7 +201,7 @@ We give an illustration of our model in Fig. \ref{fig:model}.
 \end{figure}
 
 \subsection{Preprocessing, Training, and Validation}
-\label{sec:org027e209}
+\label{sec:orgf0e9446}
 
 We convert the original images given as DICOM series into 8-bit images,
 and rescale these from \(1914 \times 2294\) to \(1024 \times 1024\) pixels. We found that this
@@ -240,7 +240,7 @@ For comparison with the state-of-the-art \autocite{walsh22}, we select the model
 as to maximize the area under the curve (ROC).
 
 \section{Results}
-\label{sec:orgcf50070}
+\label{sec:orgb79098b}
 
 
 \printbibliography

@@ -27,7 +27,19 @@ class ModelCheckpointCallback(Callback):
         batch_field_pred,
         batch_field_true,
         epoch_period=1,
+        metric_mode="maximize",
     ):
+        """
+        root_path: Path where checkpoints are saved
+        model[nn.Module]: Model to save
+        optimizer[torch.Optimizer]: Holds state of optimizer (gradients, ...)
+        metric_fn[torcheval.Metric]: Function that computes performance metric
+        batch_field_pred[str]: attribute name of Batch object with predictions
+        batch_field_true[str]: attribute name of Batch object with true values
+        epoch_period[int]: Save checkpoint period
+        metric_mode[str]: Whether our best model must maximize or minimize the provided
+                            metric
+        """
         self.root_path = root_path
         self.epoch = 1
         self.epoch_period = epoch_period
@@ -37,7 +49,15 @@ class ModelCheckpointCallback(Callback):
         self.batch_field_pred = batch_field_pred
         self.batch_field_true = batch_field_true
 
+        assert metric_mode in [
+            "maximize",
+            "minimize",
+        ], f"metric_mode must be in ['maximize', 'minimize']"
+        self.metric_mode = metric_mode
+
         self.root_path.mkdir(exist_ok=True)
+
+        self.metrics = []
 
     def on_batch_end(self, batch: Batch, *args, **kwargs):
         meta_ = batch.meta.drop_duplicates("breast_id")
@@ -45,21 +65,36 @@ class ModelCheckpointCallback(Callback):
         y_true = getattr(batch, self.batch_field_true).flatten().int()[meta_.index]
         self.metric_fn.update(y_pred, y_true)
 
+    def _save_checkpoint(self, path: Path, with_optimizer: bool = False):
+        torch.save(
+            {
+                "epoch": self.epoch,
+                "model_state_dict": self.model.state_dict(),
+                "optimizer_state_dict": (
+                    self.optimizer.state_dict() if with_optimizer else None
+                ),
+                "metric": self.metric_fn.compute(),
+            },
+            path,
+        )
+        print(f"saved checkpoint to {path}")
+
     def on_epoch_end(self, *args, **kwargs):
-        # print(f"ModelCheckpointCallback / {self.metric_fn}: {self.metric_fn.compute()}")
 
         if (self.epoch % self.epoch_period) == 0:
-            path_ = self.root_path / f"epoch_{self.epoch:03d}.pth.tar"
-            torch.save(
-                {
-                    "epoch": self.epoch,
-                    "model_state_dict": self.model.state_dict(),
-                    "optimizer_state_dict": self.optimizer.state_dict(),
-                    "metric": self.metric_fn.compute(),
-                },
-                path_,
-            )
-            print(f"saved checkpoint to {path_}")
+            self._save_checkpoint(self.root_path / "last.pth.tar", with_optimizer=True)
+
+        new_metric = self.metric_fn.compute()
+        if len(self.metrics) == 0:
+            self._save_checkpoint(self.root_path / "best.pth.tar")
+        elif self.metric_mode == "maximize":
+            if new_metric > max(self.metrics):
+                self._save_checkpoint(self.root_path / "best.pth.tar")
+        else:
+            if new_metric < min(self.metrics):
+                self._save_checkpoint(self.root_path / "best.pth.tar")
+
+        self.metrics.append(new_metric)
 
         self.epoch += 1
         self.metric_fn.reset()

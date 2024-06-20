@@ -40,7 +40,7 @@ def split(
     assert val_size + test_size < 1.0, f"val and test sizes must be < 1"
 
     if meta_out.exists():
-        print(f"found file at {meta_out}, quitting")
+        print(f"found file {meta_out}, we are done.")
         return
 
     meta = pd.read_csv(meta_in)
