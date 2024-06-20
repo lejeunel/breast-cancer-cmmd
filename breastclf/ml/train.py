@@ -83,6 +83,17 @@ def train(
     model = BreastClassifier(fusion_mode=fusion).to(device)
 
     optim = Adam(params=model.parameters(), lr=learning_rate, weight_decay=weight_decay)
+
+    curr_epoch = 0
+    past_metrics = []
+    if resume_cp_path is not None:
+        print(f"loading weights from {resume_cp_path}")
+        dict_ = torch.load(resume_cp_path)
+        model.load_state_dict(dict_["model_state_dict"])
+        optim.load_state_dict(dict_["optimizer_state_dict"])
+        curr_epoch = dict_["epoch"]
+        past_metrics = dict_["metrics"]
+
     criterion = BCELoss(reduction="none")
 
     trainer = Trainer(
@@ -91,10 +102,12 @@ def train(
         criterion,
         device=device,
         loss_factors={"type": lftype, "abnorm": lfabnorm},
+        start_epoch=curr_epoch,
     )
 
     tboard_train_writer = SummaryWriter(str(run_path / "log" / "train"))
     tboard_val_writer = SummaryWriter(str(run_path / "log" / "val"))
+
     train_clbks = make_callbacks(
         tboard_writer=tboard_train_writer,
         mode="train",
@@ -110,9 +123,10 @@ def train(
         binarizer_type=dataloaders["train"].dataset.binarizer_type,
         checkpoint_root_path=run_path / "checkpoints",
         checkpoint_period=checkpoint_period,
+        past_metrics=past_metrics,
     )
 
-    for e in range(n_epochs):
+    for e in range(curr_epoch, n_epochs):
         print(f"Epoch {e+1}/{n_epochs}")
         trainer.train_one_epoch(dataloaders["train"], callbacks=train_clbks)
         trainer.eval(dataloaders["val"], callbacks=val_clbks)

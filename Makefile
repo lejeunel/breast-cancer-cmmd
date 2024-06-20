@@ -12,6 +12,7 @@ BREASTCLF_RUN_DIR ?= ./runs
 
 DOCKER_RUN := $(DOCKER_EXEC) \
 	run \
+	--ipc=host \
 	$(DOCKER_GPU) \
 	-it \
 	-u `id -u $(USER)`:`id -g $(USER)` \
@@ -20,8 +21,7 @@ DOCKER_RUN := $(DOCKER_EXEC) \
 	--mount type=bind,source=./assets,target=/assets \
 	$(DOCKER_TAGGED_IMAGE)
 
-default:
-	echo "See readme"
+default: all
 
 dirs:
 	mkdir -p $(BREASTCLF_DATA_DIR)/dicom
@@ -52,7 +52,10 @@ ml-splitted-dataset: png-images
 best-model: ml-splitted-dataset
 	@$(DOCKER_RUN) $(PYTHON_EXEC) breastclf/run-experiments.py $(PYTHON_GPU) --best-only
 
+all: ml-splitted-dataset
+	@$(DOCKER_RUN) $(PYTHON_EXEC) breastclf/run-experiments.py $(PYTHON_GPU)
+
 
 clean:
-	sudo rm -rf $(BREASTCLF_RUN_DIR)/*
-	sudo rm -rf $(BREASTCLF_DATA_DIR)/*
+	rm -rf $(BREASTCLF_RUN_DIR)/*
+	rm -rf $(BREASTCLF_DATA_DIR)/*

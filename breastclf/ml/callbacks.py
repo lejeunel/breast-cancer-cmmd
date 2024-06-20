@@ -28,6 +28,7 @@ class ModelCheckpointCallback(Callback):
         batch_field_true,
         epoch_period=1,
         metric_mode="maximize",
+        metrics=[],
     ):
         """
         root_path: Path where checkpoints are saved
@@ -54,10 +55,9 @@ class ModelCheckpointCallback(Callback):
             "minimize",
         ], f"metric_mode must be in ['maximize', 'minimize']"
         self.metric_mode = metric_mode
+        self.metrics = metrics
 
         self.root_path.mkdir(exist_ok=True)
-
-        self.metrics = []
 
     def on_batch_end(self, batch: Batch, *args, **kwargs):
         meta_ = batch.meta.drop_duplicates("breast_id")
@@ -74,6 +74,7 @@ class ModelCheckpointCallback(Callback):
                     self.optimizer.state_dict() if with_optimizer else None
                 ),
                 "metric": self.metric_fn.compute(),
+                "metrics": self.metrics,
             },
             path,
         )
@@ -85,14 +86,18 @@ class ModelCheckpointCallback(Callback):
             self._save_checkpoint(self.root_path / "last.pth.tar", with_optimizer=True)
 
         new_metric = self.metric_fn.compute()
+        do_save_as_best = False
         if len(self.metrics) == 0:
-            self._save_checkpoint(self.root_path / "best.pth.tar")
+            do_save_as_best = True
         elif self.metric_mode == "maximize":
             if new_metric > max(self.metrics):
-                self._save_checkpoint(self.root_path / "best.pth.tar")
+                do_save_as_best = True
         else:
             if new_metric < min(self.metrics):
-                self._save_checkpoint(self.root_path / "best.pth.tar")
+                do_save_as_best = True
+
+        if do_save_as_best:
+            self._save_checkpoint(self.root_path / "best.pth.tar")
 
         self.metrics.append(new_metric)
 
@@ -224,6 +229,7 @@ def make_callbacks(
     checkpoint_root_path=None,
     checkpoint_period=1,
     mode="train",
+    past_metrics=[],
 ):
     callbacks = [
         LossWriterCallback(tboard_writer, "loss_abnorm", "loss_abnorm"),
@@ -275,6 +281,7 @@ def make_callbacks(
                 metric_fn=metrics.BinaryAUROC(),
                 batch_field_pred="pred_type",
                 batch_field_true="tgt_type",
+                metrics=past_metrics,
             )
         ]
 

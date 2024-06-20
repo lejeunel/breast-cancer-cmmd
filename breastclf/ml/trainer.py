@@ -14,6 +14,7 @@ class Trainer:
         criterion,
         loss_factors={"type": 1, "abnorm": 1},
         device=torch.device("cpu"),
+        start_epoch=1,
     ):
         self.model = model
         self.optimizer = optimizer
@@ -21,10 +22,8 @@ class Trainer:
         self.criterion = criterion
         self.loss_factors = loss_factors
 
-        self.train_epoch = 1
-        self.train_iter = 0
-        self.val_epoch = 1
-        self.val_iter = 0
+        self.train_epoch = start_epoch
+        self.val_epoch = start_epoch
 
     def _weigh_type_loss(self, loss, target, freq_pos=0.7):
         loss[target == 1] = loss[target == 1] / freq_pos
@@ -46,6 +45,7 @@ class Trainer:
         self.model.train()
         self.model.to(self.device)
 
+        iter = 0
         for batch in (pbar := tqdm(dataloader)):
             batch.to(self.device)
 
@@ -70,12 +70,12 @@ class Trainer:
                 f"[train] lss: {total_loss.detach().cpu().numpy().sum():.2e}"
             )
 
-            batch.iter = self.train_iter
+            batch.iter = self.train_epoch * len(dataloader) + iter
 
             for clbk in callbacks:
                 clbk.on_batch_end(batch)
 
-            self.train_iter += 1
+            iter += 1
 
         for clbk in callbacks:
             clbk.on_epoch_end(epoch=self.train_epoch)
@@ -88,6 +88,7 @@ class Trainer:
         self.model.eval()
         self.model.to(self.device)
 
+        iter = 0
         for batch in (pbar := tqdm(dataloader)):
 
             batch.to(self.device)
@@ -99,12 +100,12 @@ class Trainer:
 
             pbar.set_description("[val]")
 
-            batch.iter = self.val_iter
+            batch.iter = self.val_epoch * len(dataloader) + iter
 
             for clbk in callbacks:
                 clbk.on_batch_end(batch)
 
-            self.val_iter += 1
+            iter += 1
 
         for clbk in callbacks:
             clbk.on_epoch_end(epoch=self.val_epoch)
