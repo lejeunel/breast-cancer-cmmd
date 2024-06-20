@@ -16,10 +16,13 @@ DOCKER_RUN := $(DOCKER_EXEC) \
 	$(DOCKER_GPU) \
 	-it \
 	-u `id -u $(USER)`:`id -g $(USER)` \
+	-e MPLCONFIGDIR=$(BREASTCLF_DATA_DIR) \
 	--mount type=bind,source=$(BREASTCLF_RUN_DIR),target=/runs \
 	--mount type=bind,source=$(BREASTCLF_DATA_DIR),target=/data \
 	--mount type=bind,source=./assets,target=/assets \
 	$(DOCKER_TAGGED_IMAGE)
+
+
 
 default: all
 
@@ -53,7 +56,7 @@ best-model: ml-splitted-dataset
 	@$(DOCKER_RUN) $(PYTHON_EXEC) breastclf/run-experiments.py $(PYTHON_GPU) --best-only
 
 all: ml-splitted-dataset
-	@$(DOCKER_RUN) $(PYTHON_EXEC) breastclf/run-experiments.py $(PYTHON_GPU)
+	@$(DOCKER_RUN) $(PYTHON_EXEC) breastclf/main.py ml run-experiments $(PYTHON_GPU)
 
 
 clean:
