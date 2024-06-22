@@ -284,10 +284,9 @@ auxiliary task that classifies abnormalities.
 run_path = Path('../runs')
 paths = [p for p in run_path.glob('**/test-agg-results.csv')]
 df = pd.concat([pd.read_csv(p) for p in paths])
-df = df[['fusion_mode', 'lfabnorm', 'AUC(ROC)', 'mAP']]
+df = df[['fusion_mode', 'lfabnorm', 'AUC(ROC)', 'AP']]
 df = df.rename(columns={'lfabnorm': 'with aux. task',
-                        'fusion_mode': 'fusion mode',
-                        'mAP': 'AP'})
+                        'fusion_mode': 'fusion mode'})
 df = df.sort_values('AUC(ROC)', ascending=False)
 
 with pd.option_context('display.float_format', '{:0.3f}'.format):

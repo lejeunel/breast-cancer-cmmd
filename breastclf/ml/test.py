@@ -87,7 +87,7 @@ def test(
     for field_name, metric_fn, thr in [
         ("AUC(ROC)", roc_auc_score, None),
         ("F1", f1_score, 0.5),
-        ("mAP", average_precision_score, None),
+        ("AP", average_precision_score, None),
     ]:
         y_true = meta["tgt_type"]
         y_pred = meta["pred_type"]
