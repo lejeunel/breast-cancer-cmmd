@@ -95,23 +95,9 @@ Prior to running targets, you may customize the following environment variables.
 - ~BREASTCLF_USE_CUDA~: Flag to use nvidia GPU acceleration (recommended).
   You must first install the [[https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html][Nvidia Container Toolkit]] to use this feature.
 
-To run all experiments (training, validation, and testing), execute:
+Read the makefile target definitions with:
 
  #+begin_src shell
-make all
+make help
  #+end_src
 
-... and clear all data artefacts (including raw-data) with
-
- #+begin_src shell
-make clean
- #+end_src
-
-* Notes
-
-https://stackoverflow.com/questions/25185405/using-gpu-from-a-docker-container
-
-** Baselines:
-- /A Comparison of Techniques for Class Imbalance in Deep Learning Classification of Breast Cancer/
-- /Deep Learning in Breast Cancer Imaging: A Decade of Progress and Future Directions/
-- /Attention-Based Deep Learning System for Classification of Breast Lesions—Multimodal, Weakly Supervised Approach/
