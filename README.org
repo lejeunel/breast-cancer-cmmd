@@ -1,6 +1,24 @@
 #+title: A Deep-Learning Approach to Breast Cancer Screening from Mammography Images
 
 * Usage
+** Using the docker engine
+
+We make available a Docker image on DockerHub, along with
+a ~Makefile~ to facilitate reproducibility and
+abstract-away the granular pipeline steps described above.
+
+Prior to running targets, you may customize the following environment variables.
+- ~BREASTCLF_RUN_DIR~: Path where checkpoints and results are stored.
+- ~BREASTCLF_DATA_DIR~: Path where raw-data, preprocessed images, and meta-data are stored.
+- ~BREASTCLF_USE_CUDA~: Flag to use nvidia GPU acceleration (recommended).
+  You must first install the [[https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html][Nvidia Container Toolkit]] to use this feature.
+
+Read the makefile target definitions with:
+
+ #+begin_src shell
+make help
+ #+end_src
+
 ** Using a virtual environment
 
 - Install [[https://python-poetry.org/docs/#installation][Poetry]] in user-space.
@@ -81,23 +99,4 @@ Where:
 - ~<lftype>~ is the loss factor applied to the tumor type classification objective.
 - ~<run-dir>~ is the root path where checkpoints, logs, and validation data will be stored.
 - ~<experiment-name>~ sets the name of the directory created in ~<run-dir>~.
-
-
-** Using the docker engine
-
-We make available a Docker image on DockerHub, along with
-a ~Makefile~ to facilitate reproducibility and
-abstract-away the granular pipeline steps described above.
-
-Prior to running targets, you may customize the following environment variables.
-- ~BREASTCLF_RUN_DIR~: Path where checkpoints and results are stored.
-- ~BREASTCLF_DATA_DIR~: Path where raw-data, preprocessed images, and meta-data are stored.
-- ~BREASTCLF_USE_CUDA~: Flag to use nvidia GPU acceleration (recommended).
-  You must first install the [[https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html][Nvidia Container Toolkit]] to use this feature.
-
-Read the makefile target definitions with:
-
- #+begin_src shell
-make help
- #+end_src
 
