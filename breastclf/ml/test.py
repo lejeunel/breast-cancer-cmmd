@@ -54,20 +54,10 @@ def test(
     model = BreastClassifier(fusion_mode=cfg["fusion"]).to(device)
 
     cp_root_path = run_path / "checkpoints"
-    print(f"parsing {cp_root_path} for best model")
-    cp_paths = sorted([f for f in cp_root_path.glob("*.pth.tar")])
-    models = []
-    for path in cp_paths:
-        archive = torch.load(path)
-        score = archive["metric"]
-        models.append({"score": score, "path": path})
+    archive = torch.load(cp_root_path / "best.pth.tar")
 
-    best_model = max(models, key=lambda m: m["score"])
-    print(f"found best model: {best_model['path']} with score {best_model['score']}")
-
-    checkpoint = torch.load(best_model["path"])
     print("loading weights from checkpoint")
-    model.load_state_dict(checkpoint["model_state_dict"])
+    model.load_state_dict(archive["model_state_dict"])
 
     model.eval()
     meta = []
@@ -75,7 +65,7 @@ def test(
         for batch in (pbar := tqdm(dloader)):
 
             batch.to(device)
-            batch = model(batch)
+            batch, _ = model(batch)
 
             meta_ = batch.meta
             meta_["pred_type"] = batch.pred_type.cpu().numpy()

@@ -9,7 +9,7 @@ from breastclf.ml.utils import save_to_yaml
 from breastclf.ml.model import BreastClassifier
 from typing_extensions import Annotated
 from breastclf.ml.trainer import Trainer
-from torch.nn import BCELoss
+
 from torch.optim import Adam
 from torch.utils.tensorboard import SummaryWriter
 import torch
@@ -29,7 +29,7 @@ def train(
     ] = True,
     image_size: Annotated[int, typer.Option(help="size of input image")] = 1024,
     batch_size: Annotated[int, typer.Option()] = 16,
-    n_batches_per_epoch: Annotated[int, typer.Option()] = 30,
+    n_batches_per_epoch: Annotated[int, typer.Option()] = 50,
     n_workers: Annotated[
         int, typer.Option(help="Num of parallel processes in data loader")
     ] = 8,
@@ -49,7 +49,7 @@ def train(
         ),
     ] = "output",
     lftype: Annotated[float, typer.Option(help="loss factor for type")] = 1.0,
-    lfabnorm: Annotated[float, typer.Option(help="loss factor for abnormality")] = 1.0,
+    lfabnorm: Annotated[float, typer.Option(help="loss factor for abnormality")] = 0.0,
 ):
     """
     Training routine.
@@ -94,15 +94,12 @@ def train(
         curr_epoch = dict_["epoch"]
         past_metrics = dict_["metrics"]
 
-    criterion = BCELoss(reduction="none")
-
     trainer = Trainer(
         model,
         optim,
-        criterion,
         device=device,
-        loss_factors={"type": lftype, "abnorm": lfabnorm},
         start_epoch=curr_epoch,
+        loss_factors={"type": lftype, "abnorm": lfabnorm},
     )
 
     tboard_train_writer = SummaryWriter(str(run_path / "log" / "train"))
@@ -111,7 +108,6 @@ def train(
     train_clbks = make_callbacks(
         tboard_writer=tboard_train_writer,
         mode="train",
-        binarizer_abnorm=dataloaders["train"].dataset.binarizer_abnorm,
         binarizer_type=dataloaders["train"].dataset.binarizer_type,
     )
     val_clbks = make_callbacks(
@@ -119,7 +115,6 @@ def train(
         model=model,
         optimizer=optim,
         mode="val",
-        binarizer_abnorm=dataloaders["train"].dataset.binarizer_abnorm,
         binarizer_type=dataloaders["train"].dataset.binarizer_type,
         checkpoint_root_path=run_path / "checkpoints",
         checkpoint_period=checkpoint_period,

@@ -2,4 +2,4 @@
 #+HTML_HEAD: <link rel="stylesheet" type="text/css" href="style/org.css"/>
 #+LATEX_HEADER: \usepackage[backend=bibtex]{biblatex}
 #+LATEX_HEADER: \usepackage{fancyvrb}
-#+LATEX_HEADER: \DefineVerbatimEnvironment{verbatim}{Verbatim}{framerule=0.5mm,frame=lines,numbers=left}
+#+LATEX_HEADER: \DefineVerbatimEnvironment{verbatim}{Verbatim}{framerule=0.5mm,frame=lines,numbers=left,samepage=true}

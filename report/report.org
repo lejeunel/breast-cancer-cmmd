@@ -1,13 +1,14 @@
-#+title: A Multi-View Deep-Learning Approach to Breast Cancer Screening from Mammography Images
+#+title: Breast Cancer Screening from Mammography Images
+#+subtitle: Investigating Multi-View and Multi-Task Approaches
 #+setupfile: setupfile.org
 #+OPTIONS: toc:t
 #+AUTHOR: Laurent Lejeune
 #+EMAIL: me@lejeunel.org
 #+cite_export: biblatex
-#+bibliography: myrefs.bib
-#+LATEX_HEADER: \bibliography{myrefs.bib}
+#+bibliography: refs.bib
+#+LATEX_HEADER: \bibliography{refs.bib}
 
-#+BEGIN_SRC python :session :exports none
+#+BEGIN_SRC python :exports none :session
 from pathlib import Path
 import seaborn as sns
 import pandas as pd
@@ -23,10 +24,29 @@ data_path = Path('../data')
 #+RESULTS:
 
 * Introduction
-- [cite:@crawshaw20]: Multi-Task Learning with Deep Neural Networks: A Survey
-- [cite:@dai15]: Instance-aware Semantic Segmentation via Multi-task Network Cascades
-- [cite:@xu18]: PAD-Net: Multi-Tasks Guided Prediction-and-Distillation Network for
-  Simultaneous Depth Estimation and Scene Parsing
+
+We aim to develop a complete pipeline that predicts the malignancy of tumors contained
+in mammograms using a modern supervised Machine Learning method.
+
+In particular, we leverage an architecture based on a Convolutional Neural Network,
+which we setup as a classifier.
+
+We further pursue two axes of experimentation. The first attempts to smooth-out the inherently
+noisy label set by aggregating several views of the same breast, while the second
+adds an auxiliary task that explicitly leverages visual cues related to the type of abnormality.
+
+We start by presenting the Chinese Mammography Database (CMMD), our dataset of
+choice in this work, and emphasize the challenges that it brings in the setting of cancer prediction.
+
+Next, in the Methods section, we formulate our problems,
+namely how we combine the different classification tasks, and how
+we merge multiple view-angles of the same breast-sample,
+and describe our architecture and training strategy.
+
+In the Results section, we provide quantitative figures to compare the performance of our
+different configurations with the state-of-the-art.
+
+Last, we conclude by giving an outlook and suggest possible improvements.
 
 * The Chinese Mammography Database (CMMD)
 
@@ -34,21 +54,21 @@ data_path = Path('../data')
 
 We use the publicly available Chinese Mammography Database (CMMD) [cite:@cai23],
 which originally contains $\approx 1871$ patients screened for breast cancer.
-and filter-out  scans that match the following criteria:
+These are then filtered-out so as to match the following criteria:
 
 - Patients with history of previous breast biopsy within 1 week, or any therapy for breast lesions
   prior to mammography.
 - Patients with breasts prosthesis.
 - Images with substantial motion artifact.
 
-This reduces our dataset to $1775$ patients.
+This reduces the number of patients to $1775$.
 
 ** Annotations
 
-Each *study* is analyzed by domain experts so as to assign the following
+Each /breast/ is analyzed by domain experts so as to assign the following
 target variables:
 
-- $y_{t} \in \{\text{benign}, \text{malignant}\, \text{none}\}$ indicates the type of tumor.
+- $y_{t} \in \{\text{benign}, \text{malignant}, \text{none}\}$ indicates the type of tumor.
 - $y_{a} \in \{\text{calcification}, \text{mass}, \text{both}\}$ indicates the type of abnormality, where ~both~ means that both ~calcification~ and ~mass~ are present.
 - $y_s \in \{\text{luminal-A}, \text{luminal-B},\text{HER2-positive},\text{triple-negative},\text{missing}\}$ a
   subtype information (possibly missing).
@@ -63,9 +83,9 @@ the following sources of noise:
 1. Each study contains 2 views per breast. This is due to the fact that the visual cues
     that are relevant to distinguish a benign from a malignant tumor are
      sometimes absent from one of the two available views, thereby justifying redundancy.
-     In other words, the labels that directly to visible abnormalities, i.e. $y_{a}$,
+     In other words, the labels that directly refer to visual cues, i.e. $y_{a}$,
      have been associated with two views (images), while one of the two could contain no
-     abnormalities.
+     such cue.
 
 2. While the abnormality labels $y_{a}$ seem to refer to well-defined visible objects,
    we find that these come in at least 2 forms: compact blobs, and clusters.
@@ -83,11 +103,13 @@ training phase.
 
 ** Exploration
 
-#+BEGIN_SRC python :session :exports results :results none
-from breastclf.ml.dataloader import DataLoader
-image_size = 320
+We show the distribution of abnormalities with respect to tumor type on Fig. [[fig:distributions]],
+and show example images on Fig. [[fig:preview]].
 
-dset = DataLoader(data_path / 'png', data_path / 'meta-images-split.csv',
+#+BEGIN_SRC python :session :exports results :results none
+from breastclf.ml.dataloader import BreastDataset
+
+dset = BreastDataset(data_path / 'png', data_path / 'meta-images-split.csv',
                   split='train')
 meta = dset.meta
 #+END_SRC
@@ -112,7 +134,7 @@ fig.savefig(fig_path)
 ** <<split>>Curation and Splitting
 
 As we endeavour to use the CMMD dataset to produce an ML solution, we
-perform a curation step and split all images in a train, validation, and testing split.
+perform a curation step and split all images in a train, validation, and testing splits.
 
 In addition to the filtering criteria described in Sec. [[screening]], we further
 discard images that have identical hashes following the authors's recommendations [fn:reco].
@@ -141,42 +163,63 @@ We now develop our composite objectives and multi-view classification approaches
 
 ** <<multiview>>Learning with Multiple Views
 
-Following previous works in breast cancer screening [cite:@geras17] [cite:@seeland21],
-we implement and test several strategies (*fusion mode*) to handle the fact that
-labels are assigned to studies (and not images).
+Following previous works in breast cancer screening,
+we implement and test several ways to handle the fact that
+labels are assigned to studies, and not individual images.
 
-1. *Output average*: We assign to all images of the same study
-    the mean probability output.
-2. *Feature average*: We first compute the mean feature vector of all images of the same
-   study. We then pass this vector into the classification layer prior to compute the loss and
-   applying back-propagation.
-3. *Feature  max*: Similar to previous approach, but we compute the max descriptors instead.
+This problem setting is referred to as "Multi-View".
+In particular, we implement:
+
+1. *Averaging of output probabilities*:  We forward-pass all images of the same study
+    and compute the mean probability output prior to computing the loss and applying
+    back-propagation.
+2. *Averaging of features*: Following [cite:@geras17] [cite:@seeland21], we first compute the mean feature vector of all images of the same
+   study. We then pass this vector into the classification layer and proceed as in
+   previous approach.
+3. *Max aggregation of features*: Similar to previous approach, but we compute the max descriptors instead.
+4. *Feature concatenation*: Following [cite:@wu19] [cite:@chen22], we concatenate feature
+   vectors and proceed as in previous approaches.
 
 ** Auxiliary Task
 
-Inspired by [cite:@tardy22], we investigate the relevance of multi-task learning,
-and add to our main task the auxiliary task of identifying
-abnormalities.
+We investigate the relevance of multi-task learning (MTL) in breast cancer screening,
+While authors in [cite:@tardy22] demonstrate the benefits of MTL
+by augmenting the main objective with
+4 other auxiliary tasks, namely that of predicting the view-angle and
+regressing on the breast density,
+we choose to add the auxiliary task of identifying abnormalities.
 
-In particular, we add a second classifier head to our backbone, and train the whole
-model end-to-end to studies in malignant/benign, and calcification/mass/both,
-both objectives being optimized in parallel.
+Although breast density is another useful indicator, we do not have this information for the CMMD dataset. The challenge of this auxiliary tasks lies in the fact, that unlike image laterality or breast density, the abnormality type is less obvious in the mammography image, and also, as mentioned above, some views may not contain it at all.
 
-We implement similar aggregation strategies given in Sec. [[multiview]].
+Furthermore, we learn from [cite:@azam21] that overall, pathological and sane
+cases show different /forms/ of calcification, i.e. malignant cases show smaller and clustered
+microcalcifications, while benign cases tend to create large blobs.
 
-Note that as shown in Fig. [[fig:distributions]], this auxiliary task belongs to the
-/multi-label/ scenario, since a given study/image can potentially
-show more than one class.
+Without justification, and for the sake of experimentation,
+we extrapolate the above result to the /mass/ abnormality, and assume
+that it also comes in specific shape/form depending on the benign/malignant
+scenario.
+
+Formally, we add for each abnormality-type /calcification/ and /mass/,
+a parallel classification head to our backbone, that are trained using
+3 labels each: *benign-form*, *malignant-form*, and *absent*.
+These artificial labels are trivially derived from the tumor-classification and
+the abnormality label provided by domain experts.
+The studies containing both type of abnormalities are excluded from this, due to the added noise that would be introduced since we cannot, without the help of an expert, know which abnormality type is responsible for the label.
+
+In these branches, we implement and investigate similar aggregation strategies
+given in Sec. [[multiview]].
 
 ** Architecture
 
 Our model is a Convolution Neural Network based on the ResNet34
-architecture [cite:@he15], where the bottleneck gives $512$ features.
-Next, features are mapped to probabilities using linear layers.
-
+architecture [cite:@he15], which encodes each image into a $512$ -dimensional feature
+vector.
+Next, features are mapped to probability distributions following Multi-Layer Perceptrons
+and sigmoid/softmax activation functions.
 We give an illustration of our model in Fig. [[fig:model]].
 
-#+CAPTION: Our model takes as input a set of images that show several views of the same breast. We investigate on several fusion strategies (dashed columns): (1) Fuse features at bottleneck, and (2) fuse prediction outputs. We also set an auxiliary multi-label classification objective on abnormalities (bottom branch).
+#+CAPTION: Our model takes as input a set of images that show several views of the same breast. We investigate on several fusion strategies (dashed columns): (1) Fuse features at bottleneck, or (2) fuse prediction outputs. We also set an auxiliary multi-label classification objective on abnormalities (bottom branch).
 #+LABEL: fig:model
 [[./images/model.png]]
 
@@ -187,36 +230,107 @@ and rescale these from $1914 \times 2294$ to $1024 \times 1024$ pixels. We found
 is a good compromise as it conserves most fine-grained details while
 reducing computational burden.
 
-Next, we apply the triangle thresholding approach described in [cite:@walsh22]
+Next, we apply a simple pre-processing pipeline inspired by [cite:@walsh22].
+In particular, we apply the non-parametric triangle thresholding operator [cite:@zack77]
 to remove background noise.
+Last, we apply vertical mirroring to right breasts so as to align them with left breasts.
 
-Finally, we apply vertical mirroring to right breasts so as to align them with left breasts.
+We construct mini-batches so as to include all views of a given breast, thereby
+giving $V \times B$ images per batch, where $V$ is the number of views,
+and $B$ is the number of breasts per-batch.
 
-We feed our model with mini-batches that combine both views of a given breast, and
-apply our fusion operators prior to computing the gradients.
+Both training objectives are weighed and summed to produce
+the total loss $\mathcal{L}$:
 
-Our classification tasks are optimized as follows:
+\begin{equation}
+\mathcal{L} = \lambda_{t}\mathcal{L}_{t} + \lambda_{a}\mathcal{L}_{a}
+\end{equation}
 
-1. *Type*: Classifies breasts as Malignant/Benign using a Binary Cross-Entropy.
-2. *Abnormality*: Classifies breasts as Mass *and/or* calcification using a Binary Cross-Entropy
-   in a multi-label fashion, i.e. we apply the sigmoid operator to the outputs.
+Where $\mathcal{L}_t$ and $\mathcal{L}_a$ optimize for tumor type
+and abnormality, respectively.
 
-We train both our backbone and classification heads in an end-to-end regime through
+After manual tuning, we set $\lambda_t=1$ for all experiments,
+and $\lambda_a \in \{0; 0.3\}$ depending on experimental setting.
+
+We train both our backbone and classification heads in an end-to-end manner through
 gradient descent using a cross-validation strategy.
 We leverage the training/validation splits described in Sec. [[split]], and train for
-of $20$ epochs, where each epoch contains $30$ randomly sampled mini-batches,
+$20$ epochs, where each epoch contains $50$ randomly sampled mini-batches,
 where each mini-batch contains $16$ images, i.e. $8$ breasts.
 
 Our gradients are computed using the Adam optimizer with a learning rate of
 $5 \times 10^{-5}$.
 
-When combining different objectives, we set weighing factors to
-the losses to $1$.
-
-For comparison with the state-of-the-art [cite:@walsh22], we select the model so
-as to maximize the area under the curve (ROC).
+For fair comparison with the state-of-the-art [cite:@walsh22], we select the model so
+as to maximize the area under the ROC curve on the validation set.
 
 * Results
+
+We compute performances on the benign/malignant classification task
+on the testing dataset for each of the following named configurations:
+
+- ~mean-feats~: Mean aggregation of features
+- ~max-feats~: Max aggregation of features
+- ~concat-feats~: Concatenation of features
+- ~output~: Mean probability output
+
+Our results are sorted according to AUC(ROC) metric.
+We also provide the average precision (~AP~), i.e. the area under the PR-RC curve.
+
+Another experimental parameter, ~with aux task~, takes value ~True~ when we jointly optimize for the
+auxiliary task that classifies abnormalities.
+
+#+BEGIN_SRC python :session :exports results :results output
+run_path = Path('../runs')
+paths = [p for p in run_path.glob('**/test-agg-results.csv')]
+df = pd.concat([pd.read_csv(p) for p in paths])
+df = df[['fusion_mode', 'lfabnorm', 'AUC(ROC)', 'mAP']]
+df = df.rename(columns={'lfabnorm': 'with aux. task',
+                        'fusion_mode': 'fusion mode',
+                        'mAP': 'AP'})
+df = df.sort_values('AUC(ROC)', ascending=False)
+
+with pd.option_context('display.float_format', '{:0.3f}'.format):
+        print(df.to_string(index=False))
+#+END_SRC
+
+#+RESULTS:
+:  fusion mode  with aux. task  AUC(ROC)    AP
+:   mean-feats            True     0.679 0.830
+:   mean-feats           False     0.669 0.825
+:       output            True     0.656 0.801
+:       output           False     0.597 0.776
+:    max-feats            True     0.580 0.755
+:    max-feats           False     0.566 0.745
+: concat-feats            True     0.494 0.720
+: concat-feats           False     0.410 0.662
+
+Interestingly, the ~concat-feats~ mode performs very poorly.
+We hypothesize that this might be due to the fact
+that we do not take into account the view-angle into account when
+concatenating.
+
+* Discussion, Conclusion and Future Works
+
+We contributed a method to discriminate X-ray image sets of breasts into malignant and benign
+categories.
+
+Given that the proposed task is known to be hard, and further made more difficult by
+the fact that the CMMD dataset has noisy and inconsistent labels,
+we proposed techniques to smooth-out these inconsistency by leveraging multi-view and
+auxiliary task objectives.
+
+We showed that the two latter upgrades bring promising improvements.
+However, we wish to emphasize that the attained performance-level remain low.
+Importantly, our best model reaches performance-levels that lie substantially
+below the state-of-the-art [cite:@tardy22], while being technically more involved.
+This might be due to differences in data curation, and/or splitting strategies.
+
+Also, we believe that the proposed auxiliary task could bring much stronger
+improvement, provided that abnormalities are labelled according to their actual
+visual appearance. Another upgrade in these annotations could come in the form
+of localization, such as bounding-boxes or delineations, as already investigated by [cite:@tang19].
+
 
 
 #+print_bibliography:

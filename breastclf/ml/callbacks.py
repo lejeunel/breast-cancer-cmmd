@@ -1,12 +1,11 @@
 from pathlib import Path
 
-from breastclf.ml.dataloader import Batch
+from breastclf.ml.shared import Batch
 from breastclf.ml.metrics import BinaryPrecisionAtFixedRecall
 import torch
 from torcheval import metrics
-from sklearn.metrics import ConfusionMatrixDisplay, multilabel_confusion_matrix
-import numpy as np
-import matplotlib.pyplot as plt
+
+import pandas as pd
 
 
 class Callback:
@@ -118,79 +117,6 @@ class LossWriterCallback(Callback):
         )
 
 
-class ConfusionMatrixWriterCallback(Callback):
-
-    def __init__(
-        self,
-        writer,
-        out_field,
-        batch_field_true,
-        batch_field_pred,
-        binarizer,
-        threshold=0.5,
-    ):
-        self.writer = writer
-        self.out_field = out_field
-        self.batch_field_true = batch_field_true
-        self.batch_field_pred = batch_field_pred
-        self.binarizer = binarizer
-        self.threshold = 0.5
-
-        self.y = []
-        self.y_true = []
-
-    def on_batch_end(self, batch: Batch, *args, **kwargs):
-
-        self.y += [
-            getattr(batch, self.batch_field_pred).squeeze().detach().cpu().numpy()
-        ]
-        self.y_true += [
-            getattr(batch, self.batch_field_true).squeeze().detach().cpu().int().numpy()
-        ]
-
-    def on_epoch_end(self, epoch, *args, **kwargs):
-
-        self.y = np.concatenate(self.y) >= self.threshold
-        self.y_true = np.concatenate(self.y_true)
-
-        assert (
-            self.y.ndim == self.y_true.ndim
-        ), f"target and predictor dimensions do not match: {self.y.ndim}, and {self.y_true.ndim}!"
-
-        is_binary = True
-        n_predictors = 1
-        if self.y.ndim > 1 and self.y_true.ndim > 1:
-            is_binary = False
-            n_predictors = self.y.shape[-1]
-
-        fig, axes = plt.subplots(nrows=1, ncols=n_predictors)
-
-        if is_binary:
-            y = self.binarizer.inverse_transform(self.y)
-            y_true = self.binarizer.inverse_transform(self.y_true)
-            ConfusionMatrixDisplay.from_predictions(
-                y_true, y, labels=self.binarizer.classes_, ax=axes, normalize="true"
-            )
-        else:
-            mat = multilabel_confusion_matrix(self.y_true, self.y)
-            for i, (ax, m) in enumerate(zip(axes, mat)):
-                class_ = self.binarizer.classes_[i]
-                cmd = ConfusionMatrixDisplay(
-                    confusion_matrix=m,
-                    display_labels=["False", "True"],
-                )
-                ax.title.set_text(class_)
-                cmd.plot(ax=ax)
-
-        self.writer.add_figure(self.out_field, fig, epoch)
-        plt.tight_layout()
-        plt.close()
-
-        # reset state
-        self.y = []
-        self.y_true = []
-
-
 class MetricWriterCallback(Callback):
     """
     Compute a running metric with a callable derived from
@@ -220,10 +146,38 @@ class MetricWriterCallback(Callback):
         self.metric_fn.reset()
 
 
+class PerImageCallback(Callback):
+    """ """
+
+    def __init__(self, out_path: Path, batch_field_true, batch_field_pred):
+        self.batch_field_pred = batch_field_pred
+        self.batch_field_true = batch_field_true
+
+        self.out_path = out_path
+
+        self.all_meta = []
+
+    def on_batch_end(self, batch: Batch, *args, **kwargs):
+
+        meta_ = batch.meta.copy()
+        y_pred = getattr(batch, self.batch_field_pred).flatten().detach().cpu().numpy()
+        y_true = (
+            getattr(batch, self.batch_field_true).flatten().int().detach().cpu().numpy()
+        )
+
+        meta_["_pred"] = y_pred
+        meta_["_true"] = y_true
+
+        self.all_meta.append(meta_)
+
+    def on_epoch_end(self, epoch):
+        all_meta = pd.concat(self.all_meta)
+        all_meta.to_csv(self.out_path / f"ep_{epoch:03d}.csv")
+
+
 def make_callbacks(
     tboard_writer,
     binarizer_type,
-    binarizer_abnorm,
     model=None,
     optimizer=None,
     checkpoint_root_path=None,
@@ -232,8 +186,6 @@ def make_callbacks(
     past_metrics=[],
 ):
     callbacks = [
-        LossWriterCallback(tboard_writer, "loss_abnorm", "loss_abnorm"),
-        LossWriterCallback(tboard_writer, "loss_type", "loss_type"),
         MetricWriterCallback(
             tboard_writer,
             metrics.BinaryAccuracy(threshold=0.5),
@@ -257,19 +209,18 @@ def make_callbacks(
         ),
         MetricWriterCallback(
             tboard_writer,
-            metrics.BinaryF1Score(threshold=0.5),
-            "f1_abnorm",
-            "tgt_abnorm",
-            "pred_abnorm",
-        ),
-        MetricWriterCallback(
-            tboard_writer,
             BinaryPrecisionAtFixedRecall(min_recall=1.0),
             "precision_at_recall_1",
             "tgt_type",
             "pred_type",
         ),
     ]
+
+    if mode == "train":
+        callbacks += [
+            LossWriterCallback(tboard_writer, "loss_abnorm", "loss_abnorm"),
+            LossWriterCallback(tboard_writer, "loss_type", "loss_type"),
+        ]
 
     if mode == "val":
         callbacks += [
@@ -282,7 +233,12 @@ def make_callbacks(
                 batch_field_pred="pred_type",
                 batch_field_true="tgt_type",
                 metrics=past_metrics,
-            )
+            ),
+            PerImageCallback(
+                out_path=checkpoint_root_path,
+                batch_field_true="tgt_type",
+                batch_field_pred="pred_type",
+            ),
         ]
 
     return callbacks

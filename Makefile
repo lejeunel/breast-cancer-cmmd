@@ -31,7 +31,7 @@ dirs:
 	@echo ">>> Creating output directories"
 	mkdir -p $(BREASTCLF_DATA_DIR)/dicom
 	mkdir -p $(BREASTCLF_DATA_DIR)/png
-	mkdir -p $(BREASTCLF_RUN_DIR)/png
+	mkdir -p $(BREASTCLF_RUN_DIR)
 
 build-image:
 	@echo ">>> building image"
@@ -64,7 +64,7 @@ ml-splitted-dataset: png-images
 
 best-model: ml-splitted-dataset
 	@echo ">>> Training and testing best model"
-	@$(DOCKER_RUN) $(PYTHON_EXEC) breastclf/run-experiments.py $(PYTHON_GPU) --best-only
+	@$(DOCKER_RUN) $(PYTHON_EXEC) breastclf/main.py ml run-experiments.py $(PYTHON_GPU) --best-only
 
 all: ml-splitted-dataset
 	@echo ">>> Training and testing all models"

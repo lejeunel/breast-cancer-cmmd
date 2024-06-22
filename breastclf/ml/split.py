@@ -60,8 +60,6 @@ def split(
     meta = meta.loc[~non_annotated].reset_index(drop=True)
 
     meta = _add_breast_id(meta)
-    # validate that all images of the same breast have the same labels
-    # meta.groupby("breast_id")[stratif_cols].nunique()
 
     breast_label_map = meta.groupby("breast_id")[stratif_cols].first()
     strat_label = pd.factorize(breast_label_map.agg("_".join, axis=1))[0]

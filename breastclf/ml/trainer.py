@@ -11,34 +11,18 @@ class Trainer:
         self,
         model,
         optimizer,
-        criterion,
-        loss_factors={"type": 1, "abnorm": 1},
         device=torch.device("cpu"),
+        loss_factors={"type": 1, "abnorm": 0},
         start_epoch=1,
     ):
         self.model = model
         self.optimizer = optimizer
         self.device = device
-        self.criterion = criterion
-        self.loss_factors = loss_factors
 
         self.train_epoch = start_epoch
         self.val_epoch = start_epoch
 
-    def _weigh_type_loss(self, loss, target, freq_pos=0.7):
-        loss[target == 1] = loss[target == 1] / freq_pos
-        loss[target == 0] = loss[target == 0] / (1 - freq_pos)
-        return loss
-
-    def _compute_losses(self, batch):
-        losses = {}
-        losses["type"] = self.criterion(batch.pred_type, batch.tgt_type)
-        losses["type"] = self._weigh_type_loss(losses["type"], batch.tgt_type)
-        losses["type"] = losses["type"].mean()
-
-        losses["abnorm"] = self.criterion(batch.pred_abnorm, batch.tgt_abnorm).mean()
-
-        return losses
+        self.loss_factors = loss_factors
 
     def train_one_epoch(self, dataloader, callbacks=[]):
 
@@ -51,9 +35,7 @@ class Trainer:
 
             self.optimizer.zero_grad()
 
-            batch = self.model(batch)
-
-            losses = self._compute_losses(batch)
+            batch, losses = self.model(batch)
 
             total_loss = 0
             for k, v in self.loss_factors.items():
@@ -92,11 +74,7 @@ class Trainer:
         for batch in (pbar := tqdm(dataloader)):
 
             batch.to(self.device)
-            batch = self.model(batch)
-            losses = self._compute_losses(batch)
-
-            for k, v in losses.items():
-                batch.set_loss(v, k)
+            batch, losses = self.model(batch)
 
             pbar.set_description("[val]")
 

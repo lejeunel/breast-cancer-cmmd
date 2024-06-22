@@ -1,7 +1,7 @@
 from torch import nn
 import torch
 import torchvision
-from breastclf.ml.dataloader import Batch
+from breastclf.ml.shared import Batch
 
 
 def make_resnet34_feat_extractor() -> tuple[nn.Module, int]:
@@ -35,14 +35,17 @@ def make_resnet34_feat_extractor() -> tuple[nn.Module, int]:
     return feat_extractor, n_features
 
 
+ABNORMALITY_BRANCH_NAMES = ["calcification", "mass"]
+
+
 class BreastClassifier(nn.Module):
     def __init__(
         self,
-        n_abnormalities: int = 2,
-        n_types: int = 2,
         dropout_rate: float = 0.0,
         fusion_mode="features",
         n_hidden_units=128,
+        loss_factors={"type": 1, "abnorm": 1},
+        type_weights={"Benign": 1 / 0.3, "Malignant": 1 / 0.7},
     ):
         super().__init__()
 
@@ -58,34 +61,85 @@ class BreastClassifier(nn.Module):
         if self.fusion_mode == "concat-feats":
             n_feats *= 2
 
-        self.abnorm_clf = nn.Sequential(
-            nn.Linear(n_feats, n_hidden_units),
-            nn.ReLU(),
-            nn.Linear(n_hidden_units, n_hidden_units),
-            nn.ReLU(),
-            nn.Linear(n_hidden_units, n_abnormalities),
-        )
+        self.loss_factors = loss_factors
+        self.type_weights = type_weights
 
+        # for each abnormality type, we have 3 classes (including absent)
+        self.abnorm_clf = nn.ModuleDict()
+        for ab in ABNORMALITY_BRANCH_NAMES:
+            self.abnorm_clf[ab] = nn.Sequential(
+                nn.Linear(n_feats, n_hidden_units),
+                nn.ReLU(),
+                nn.Linear(n_hidden_units, n_hidden_units),
+                nn.ReLU(),
+                nn.Linear(n_hidden_units, 3),
+            )
+
+        # each tumor is assigned to one of 2 classes (malignant, benign)
         self.type_clf = nn.Sequential(
             nn.Linear(n_feats, n_hidden_units),
             nn.ReLU(),
             nn.Linear(n_hidden_units, n_hidden_units),
             nn.ReLU(),
-            nn.Linear(n_hidden_units, n_types - 1),
+            nn.Linear(n_hidden_units, 1),
         )
 
-        self.type_post_clf = nn.Sequential(
-            nn.Linear(n_abnormalities + n_types - 1, 64),
-            nn.ReLU(),
-            nn.Linear(n_hidden_units, n_hidden_units),
-            nn.ReLU(),
-            nn.Linear(
-                n_hidden_units,
-                n_types - 1,
-            ),
-        )
+    def _compute_losses_on_one_breast(self, batch, logits_type, logits_abnorm):
+        losses = {}
+        if self.training:
+            tgt_type = batch.tgt_type
+            if self.fusion_mode != "output":
+                tgt_type = tgt_type[0]
 
-    def forward(self, batch):
+            losses["type"] = nn.BCEWithLogitsLoss(reduction="none")(
+                logits_type, tgt_type
+            )
+            losses["type"] *= self.type_weights[batch.meta.classification.values[0]]
+            losses["type"] = losses["type"].mean()
+
+            losses["abnorm"] = {}
+            for ab in ABNORMALITY_BRANCH_NAMES:
+                tgt_abnorm = batch.get_tgt_abnorm(ab).squeeze()
+                if self.fusion_mode != "output":
+                    tgt_abnorm = tgt_abnorm[0]
+                losses["abnorm"][ab] = nn.CrossEntropyLoss(
+                    reduction="mean", ignore_index=-1
+                )(logits_abnorm[ab], tgt_abnorm)
+
+            losses["abnorm"] = torch.stack(
+                [v for v in losses["abnorm"].values()]
+            ).mean()
+
+        return losses
+
+    def _forward_backbone(self, images: torch.Tensor):
+        feats = self.feat_extractor(images)
+        if self.fusion_mode == "mean-feats":
+            feats = feats.mean(dim=0)
+        elif self.fusion_mode == "max-feats":
+            feats = feats.max(dim=0)[0]
+        elif self.fusion_mode == "concat-feats":
+            feats = torch.cat([f for f in feats])
+
+        return feats
+
+    def _forward_one_breast(self, batch):
+
+        assert (
+            batch.meta.breast_id.unique().size == 1
+        ), "each forward pass needs a unique breast"
+
+        feats = self._forward_backbone(batch.images)
+
+        logits_type = self.type_clf(feats.squeeze())
+
+        logits_abnorm = {}
+        for ab in ABNORMALITY_BRANCH_NAMES:
+            logits_abnorm[ab] = self.abnorm_clf[ab](feats.squeeze())
+
+        return logits_type, logits_abnorm
+
+    def forward(self, batch: Batch):
         """
         We experiment on different fusion strategies.
 
@@ -96,37 +150,44 @@ class BreastClassifier(nn.Module):
         """
 
         out = []
+        losses = {"abnorm": [], "type": []}
 
         for b in batch.groupby("breast_id"):
-            n_views = b.get_num_of_views()
-            feats = self.feat_extractor(b.images)
-            if self.fusion_mode == "mean-feats":
-                feats = feats.mean(dim=0)
-            elif self.fusion_mode == "max-feats":
-                feats = feats.max(dim=0)[0]
-            elif self.fusion_mode == "concat-feats":
-                feats = torch.cat([f for f in feats])
+            logits_type, logits_abnorm = self._forward_one_breast(b)
 
-            logits_type = self.type_clf(feats.squeeze())
-            logits_abnorm = self.abnorm_clf(feats.squeeze())
+            l_ = self._compute_losses_on_one_breast(b, logits_type, logits_abnorm)
 
-            preds_type = logits_type.sigmoid()
-            preds_abnorm = logits_abnorm.sigmoid()
+            if self.training:
+                losses["abnorm"].append(l_["abnorm"])
+                losses["type"].append(l_["type"])
+
+            # convert logits to predictions
+            pred_type = logits_type.sigmoid()
+            preds_abnorm = {}
+            for ab in ABNORMALITY_BRANCH_NAMES:
+                preds_abnorm[ab] = logits_abnorm[ab].softmax(dim=0)
 
             if self.fusion_mode == "output":
-                preds_type = preds_type.mean(dim=0)
-                preds_abnorm = preds_abnorm.mean(dim=0)
+                pred_type = pred_type.mean(dim=0)
+                preds_abnorm = {k: v.mean(dim=0) for k, v in preds_abnorm.items()}
 
-            preds_type = preds_type[None, ...]
-            preds_abnorm = preds_abnorm[None, ...]
+            pred_type = pred_type[None, ...]
+            preds_abnorm = {k: v[None, ...] for k, v in preds_abnorm.items()}
 
-            b.set_predictions(
-                torch.repeat_interleave(preds_type, n_views, dim=0), "type"
-            )
-            b.set_predictions(
-                torch.repeat_interleave(preds_abnorm, n_views, dim=0), "abnorm"
+            n_views = b.get_num_of_views()
+
+            # populate batch fields
+            b.set_pred_type(torch.repeat_interleave(pred_type, n_views, dim=0))
+            b.set_pred_abnorm(
+                calcification=torch.repeat_interleave(
+                    preds_abnorm["calcification"], n_views, dim=0
+                ),
+                mass=torch.repeat_interleave(preds_abnorm["mass"], n_views, dim=0),
             )
 
             out.append(b)
 
-        return Batch.from_list(out)
+        if self.training:
+            losses = {k: torch.stack(v).nanmean() for k, v in losses.items()}
+
+        return Batch.from_list(out), losses

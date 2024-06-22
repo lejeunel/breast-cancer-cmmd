@@ -1,80 +1,82 @@
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 
 import numpy as np
 import pandas as pd
-from skimage.io import imread
-from skimage.transform import resize
-from sklearn.preprocessing import LabelBinarizer, MultiLabelBinarizer
-from torch.utils.data import Dataset, DataLoader, RandomSampler
 import torch
 from breastclf.ml import image_preprocessing as impp
+from breastclf.ml.shared import Batch
+from skimage.io import imread
+from skimage.transform import resize
+from sklearn.preprocessing import LabelBinarizer, OrdinalEncoder
+from torch.utils.data import DataLoader, Dataset, RandomSampler
 
 
-@dataclass
-class Batch:
-    """Container of input/outputs that
-    we pass into trainer and callbacks"""
+class AbnormalityEncoder:
+    """
+    Assigns to each abnormality an integer code such that:
+    - -1 -> Undefined
+    - 0 -> Absent
+    - 1 -> Benign
+    - 2 -> Malignant
+    """
 
-    images: list[np.array]
-    meta: pd.DataFrame
+    def __init__(
+        self,
+        main_field="abnormality",
+        secondary_field="classification",
+        undefined_value="both",
+    ):
+        self.main_field = main_field
+        self.secondary_field = secondary_field
+        self.undefined_value = undefined_value
+        self._encoders = {}
 
-    iter: int = 0
-
-    pred_type: Optional[list[float]] = None
-    pred_abnorm: Optional[list[list[float]]] = None
-
-    tgt_type: Optional[list[int]] = None
-    tgt_abnorm: Optional[list[list[int]]] = None
-
-    loss_abnorm: Optional[float] = None
-    loss_type: Optional[float] = None
-
-    def set_loss(self, losses: torch.Tensor, field: str):
-        assert field in ["type", "abnorm"], f"could not set loss for type {field}"
-        setattr(self, "loss" + "_" + field, losses)
-
-    def set_predictions(self, predictions: torch.Tensor, field: str):
-        assert field in ["type", "abnorm"], f"could not set prediction for type {field}"
-        setattr(self, "pred" + "_" + field, predictions)
-
-    def to(self, device):
+    def _set_abnormality_subtype(self, abnormality_type, meta: pd.DataFrame):
         """
-        Send tensor to device
+        Sets a new temporary column 'ab_subtype' with the 'Absent' value
+        using the 'secondary_field'
+
+        Returns a copy of original dataframe.
         """
-        for attr in ["tgt_type", "tgt_abnorm", "images"]:
-            setattr(self, attr, getattr(self, attr).to(device))
+        meta_ = meta.copy()
+        meta_["_ab_subtype"] = meta_[self.secondary_field]
 
-    def groupby(self, field):
-        assert field in self.meta, f"groupby criteria {field} not found in meta fields"
-
-        for _, g in self.meta.groupby(field, sort=False):
-            b = Batch(
-                meta=g,
-                images=torch.cat([self.images[i][None, ...] for i in g.index]),
-                tgt_type=torch.stack([self.tgt_type[i] for i in g.index]),
-                tgt_abnorm=torch.stack([self.tgt_abnorm[i] for i in g.index]),
-            )
-            yield b
-
-    def get_num_of_views(self):
-        return self.meta.shape[0]
-
-    @classmethod
-    def from_list(cls, batches):
-        return cls(
-            meta=pd.concat([b.meta for b in batches]),
-            images=torch.cat([b.images for b in batches]),
-            iter=batches[0].iter,
-            pred_type=torch.cat([b.pred_type for b in batches]),
-            pred_abnorm=torch.cat([b.pred_abnorm for b in batches]),
-            tgt_type=torch.cat([b.tgt_type for b in batches]),
-            tgt_abnorm=torch.cat([b.tgt_abnorm for b in batches]),
+        meta_.loc[meta_[self.main_field] != abnormality_type, "_ab_subtype"] = "Absent"
+        meta_.loc[meta_[self.main_field] == self.undefined_value, "_ab_subtype"] = (
+            np.nan
         )
 
+        return meta_
 
-MAP_ABNORMALITIES = {"both": "mass,calcification"}
+    def fit(self, meta: pd.DataFrame):
+        """
+        Fit a binarizer on each abnormality
+        """
+        assert (
+            self.undefined_value in meta[self.main_field].values
+        ), f"requested undefined_value {self.undefined_value} not found in column {self.main_field}"
+
+        for ab in meta[self.main_field].unique():
+            if ab == self.undefined_value:
+                continue
+            meta_ = self._set_abnormality_subtype(ab, meta)
+            X = meta_._ab_subtype.sort_values().unique().reshape(-1, 1)
+            self._encoders[ab] = OrdinalEncoder().fit(X)
+
+        return self
+
+    def transform(self, meta: pd.DataFrame):
+        """
+        Returns for each binarizer a list of integers
+        representing encodings
+        """
+        out = {}
+        for ab, encoder in self._encoders.items():
+            meta_ = self._set_abnormality_subtype(ab, meta)
+            out[ab] = encoder.transform(meta_._ab_subtype.values.reshape(-1, 1))
+            out[ab] = np.nan_to_num(out[ab], nan=-1)
+
+        return out
 
 
 class BreastDataset(Dataset):
@@ -98,14 +100,7 @@ class BreastDataset(Dataset):
         self.with_pairs = with_pairs
 
         self.binarizer_type = LabelBinarizer().fit(self.meta["classification"])
-
-        self.meta["abnormality"] = self.meta["abnormality"].replace(MAP_ABNORMALITIES)
-        self.binarizer_abnorm = MultiLabelBinarizer().fit(
-            [set(ab.split(",")) for ab in self.meta["abnormality"]]
-        )
-        self.meta["abnormality"] = self.meta["abnormality"].apply(
-            lambda s: set(s.split(","))
-        )
+        self.encoder_abnorm = AbnormalityEncoder().fit(self.meta)
 
         self.meta = self.meta.loc[self.meta.split == split].reset_index()
 
@@ -224,8 +219,11 @@ class BreastDataset(Dataset):
             "images": images,
             "meta": meta,
             "t_type": self.binarizer_type.transform(meta.classification),
-            "t_abnorm": self.binarizer_abnorm.transform(meta.abnormality),
         }
+
+        # append abnormality targets with a prefix
+        for k, v in self.encoder_abnorm.transform(meta).items():
+            res.update({"t_abnorm_" + k: v})
 
         if self.return_orig_image:
             res.update({"orig_images": orig_images})
@@ -249,9 +247,13 @@ class BreastDataset(Dataset):
         images = torch.moveaxis(images, -1, 1)
 
         t_type = torch.tensor(np.concatenate([s["t_type"] for s in samples])).float()
-        t_abnorm = torch.tensor(
-            np.concatenate([s["t_abnorm"] for s in samples])
-        ).float()
+
+        t_abnorm_calcification = torch.tensor(
+            np.concatenate([s["t_abnorm_calcification"] for s in samples])
+        ).long()
+        t_abnorm_mass = torch.tensor(
+            np.concatenate([s["t_abnorm_mass"] for s in samples])
+        ).long()
 
         meta = pd.concat([s["meta"] for s in samples]).reset_index()
 
@@ -260,7 +262,8 @@ class BreastDataset(Dataset):
                 "meta": meta,
                 "images": images,
                 "tgt_type": t_type,
-                "tgt_abnorm": t_abnorm,
+                "tgt_abnorm_calcification": t_abnorm_calcification,
+                "tgt_abnorm_mass": t_abnorm_mass,
             }
         )
 
@@ -309,3 +312,27 @@ def make_dataloaders(
     }
 
     return dataloaders
+
+
+if __name__ == "__main__":
+    root_path = Path("data")
+    torch.manual_seed(4)
+    dloaders = make_dataloaders(
+        root_path / "png",
+        root_path / "meta-images-split.csv",
+        Path("/tmp"),
+        batch_size=8,
+        image_size=512,
+        n_workers=8,
+    )
+    tgt_type = []
+    classification = []
+    for i, b in enumerate(dloaders["train"]):
+        print(f"{i+1}/{len(dloaders['train'])}")
+        tgt_type.append(b.tgt_type)
+        classification.append(b.meta.classification.values)
+
+    tgt_type = np.array([t_.numpy() for t in torch.cat(tgt_type) for t_ in t])
+    classification = np.array([c_ for c in classification for c_ in c])
+    all = np.vstack((tgt_type, classification)).T
+    print(np.unique(all, axis=0))

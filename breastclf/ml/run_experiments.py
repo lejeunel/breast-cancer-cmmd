@@ -28,10 +28,10 @@ def run_experiments(
         Experiment("mean-feats", 0, "no_abnorm_fusion_mean", False),
         Experiment("max-feats", 0, "no_abnorm_fusion_max", False),
         Experiment("concat-feats", 0, "no_abnorm_fusion_cat", False),
-        Experiment("output", 1, "abnorm_fusion_output", False),
-        Experiment("mean-feats", 1, "abnorm_fusion_mean", True),
-        Experiment("max-feats", 1, "abnorm_fusion_max", False),
-        Experiment("concat-feats", 1, "abnorm_fusion_cat", False),
+        Experiment("output", 0.3, "abnorm_fusion_output", False),
+        Experiment("mean-feats", 0.3, "abnorm_fusion_mean", True),
+        Experiment("max-feats", 0.3, "abnorm_fusion_max", False),
+        Experiment("concat-feats", 0.3, "abnorm_fusion_cat", False),
     ]
 
     root_data = Path("data")

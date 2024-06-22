@@ -28,6 +28,10 @@ name = "pytorch_cu11"
 url = "https://download.pytorch.org/whl/cu118"
 priority = "explicit"
 
+
+[tool.poetry.group.dev.dependencies]
+ipython = "^8.25.0"
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"

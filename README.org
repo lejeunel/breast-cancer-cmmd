@@ -89,18 +89,23 @@ We make available a Docker image on DockerHub, along with
 a ~Makefile~ to facilitate reproducibility and
 abstract-away the granular pipeline steps described above.
 
-Prior to run targets, you may customize the following environment variables.
+Prior to running targets, you may customize the following environment variables.
 - ~BREASTCLF_RUN_DIR~: Path where checkpoints and results are stored.
 - ~BREASTCLF_DATA_DIR~: Path where raw-data, preprocessed images, and meta-data are stored.
 - ~BREASTCLF_USE_CUDA~: Flag to use nvidia GPU acceleration (recommended).
   You must first install the [[https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html][Nvidia Container Toolkit]] to use this feature.
 
-  To prepare the dataset prior to training model, run:
+To run all experiments (training, validation, and testing), execute:
 
  #+begin_src shell
-make ml-splitted-dataset
+make all
  #+end_src
 
+... and clear all data artefacts (including raw-data) with
+
+ #+begin_src shell
+make clean
+ #+end_src
 
 * Notes
 
@@ -110,9 +115,3 @@ https://stackoverflow.com/questions/25185405/using-gpu-from-a-docker-container
 - /A Comparison of Techniques for Class Imbalance in Deep Learning Classification of Breast Cancer/
 - /Deep Learning in Breast Cancer Imaging: A Decade of Progress and Future Directions/
 - /Attention-Based Deep Learning System for Classification of Breast Lesions—Multimodal, Weakly Supervised Approach/
-
-** TODO
-- TODO: Set permission of files generated from docker container. They are now ~root:root~
-- Implement/document testing phase output:
-  - ~test-results.csv~: columns with raw breast-wise predictions of type *and abnormality*
-  - ~test-agg-results.csv~: Pre-defined performance metrics (AUC, MMC, F1, ...)
