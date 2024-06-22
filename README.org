@@ -5,7 +5,7 @@
 
 We make available a Docker image on DockerHub, along with
 a ~Makefile~ to facilitate reproducibility and
-abstract-away the granular pipeline steps described above.
+abstract-away the granular pipeline steps described in the next section.
 
 Prior to running targets, you may customize the following environment variables.
 - ~BREASTCLF_RUN_DIR~: Path where checkpoints and results are stored.
