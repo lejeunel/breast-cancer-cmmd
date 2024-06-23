@@ -77,8 +77,10 @@ target variables:
 
 The CMMD dataset is challenging to use in a Machine Learning setting.
 Indeed, for a ML practitioner, coherent labels are crucial to fully exploit
-modern techniques. In particular, we found that this dataset includes
-the following sources of noise:
+modern techniques, while the converse case where labels are faulty, must
+be addressed with special care [cite:@song22].
+
+In particular, we found that this dataset includes the following sources of noise:
 
 1. Each study contains 2 views per breast. This is due to the fact that the visual cues
     that are relevant to distinguish a benign from a malignant tumor are
@@ -97,7 +99,7 @@ the following sources of noise:
    assigned following a thorough histopathological protocol, and not solely on the
    basis of the imaging protocol.
 
-While there exists many techniques to deal with noisy labels [cite:@song22],
+While there exists many elaborate techniques to deal with noisy labels,
 we choose to investigate on simple arithmetic operations as part of the
 training phase.
 
@@ -122,13 +124,13 @@ sns.histplot(meta, x='abnormality', hue="classification", ax=ax)
 fig.savefig(fig_path)
 #+END_SRC
 
-#+CAPTION: Distributions of abnormalities for diagnosis
+#+CAPTION: Distributions of abnormalities for each tumor type.
 #+LABEL: fig:distributions
 [[./images/distrib.png]]
 
-#+CAPTION: Example images. On each row, we show two views of the same breast.
+#+CAPTION: Example images. On each row, we show two views of the same breast. For each image, we give its tumor type and the set of abnormalities that it contains.
 #+LABEL: fig:preview
-#+ATTR_LATEX: :width 9cm
+#+ATTR_LATEX: :width 8cm
 [[./images/previews.png]]
 
 ** <<split>>Curation and Splitting
@@ -144,10 +146,12 @@ split. We therefore make our own through the following steps:
 
 1. We discard all images that have no labels $y_t$ and $y_a$.
 2. We group all images by breast, i.e. each group contain two views of the same breast.
+   This makes sure that no two split contain images of the same breast, which would
+   incur information leakage.
 3. To perform cross-validation, we divide all groups using a stratified
     shuffled splitting strategy, where each split
-    must contain the same proportion of $y_t$ and $y_a$. Our splits contain $60$, $20$,
-     and $20\%$ of images for the train, validation, and testing set, respectively.
+    must contain the same proportion of $y_t$ and $y_a$. Our splits contain $60\%$,
+     $20\%$, and $20\%$ of images for the train, validation, and testing set, respectively.
 
 [fn:reco] https://www.cancerimagingarchive.net/collection/cmmd/
 
@@ -219,7 +223,7 @@ Next, features are mapped to probability distributions following Multi-Layer Per
 and sigmoid/softmax activation functions.
 We give an illustration of our model in Fig. [[fig:model]].
 
-#+CAPTION: Our model takes as input a set of images that show several views of the same breast. We investigate on several fusion strategies (dashed columns): (1) Fuse features at bottleneck, or (2) fuse prediction outputs. We also set an auxiliary multi-label classification objective on abnormalities (bottom branch).
+#+CAPTION: Our model takes as input a set of images that show several views of the same breast, and predicts (1) the type of tumor (main task), and (2) The form of abnormality (if present) for two types of abnormalities: mass and calcification (auxiliary task). We investigate on several fusion strategies (dashed columns): (a) Fuse features at bottleneck, or (b) fuse prediction outputs. We also set an auxiliary multi-label classification objective on abnormalities (bottom branch).
 #+LABEL: fig:model
 [[./images/model.png]]
 
@@ -250,7 +254,7 @@ Where $\mathcal{L}_t$ and $\mathcal{L}_a$ optimize for tumor type
 and abnormality, respectively.
 
 After manual tuning, we set $\lambda_t=1$ for all experiments,
-and $\lambda_a \in \{0; 0.3\}$ depending on experimental setting.
+and $\lambda_a=0.3$ when we activate the auxiliary task, and $0$ otherwise.
 
 We train both our backbone and classification heads in an end-to-end manner through
 gradient descent using a cross-validation strategy.
@@ -258,7 +262,7 @@ We leverage the training/validation splits described in Sec. [[split]], and trai
 $20$ epochs, where each epoch contains $50$ randomly sampled mini-batches,
 where each mini-batch contains $16$ images, i.e. $8$ breasts.
 
-Our gradients are computed using the Adam optimizer with a learning rate of
+Our gradients are computed using the Adam algorithm with a learning rate of
 $5 \times 10^{-5}$.
 
 For fair comparison with the state-of-the-art [cite:@walsh22], we select the model so
