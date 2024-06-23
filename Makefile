@@ -25,13 +25,6 @@ DOCKER_RUN := $(DOCKER_EXEC) \
 
 default: all
 
-## create local directories
-dirs:
-
-	@echo ">>> Creating output directories"
-	mkdir -p $(BREASTCLF_DATA_DIR)/dicom
-	mkdir -p $(BREASTCLF_DATA_DIR)/png
-	mkdir -p $(BREASTCLF_RUN_DIR)
 
 ## for development: Build docker image locally
 build-image:
@@ -45,7 +38,7 @@ push-image:
 	$(DOCKER_EXEC) push $(DOCKER_TAGGED_IMAGE)
 
 ## download raw DICOM data
-raw-data: dirs
+raw-data:
 	@echo ">>> downloading raw data"
 	@$(DOCKER_RUN) $(PYTHON_EXEC) breastclf/main.py cmmd fetch-raw-data -w 32 /assets/meta.csv /data/dicom
 
