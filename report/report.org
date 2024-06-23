@@ -146,6 +146,21 @@ In our best understanding, there does not exists an official and publicly avaibl
 split. We therefore make our own through the following steps:
 
 1. We discard all images that have no labels $y_t$ and $y_a$.
+
+    In particular, in the provided annotations csv file, some rows are missing annotations.
+
+        All such rows correspond to samples of the D2 dataset, for which we have images of both
+        breasts of the same patient.
+        The missing annotations corresponds to one of the two breasts of a patient, whose other
+        breast presents malignancy.
+        There is a comment in the dataset repository suggesting that the missing annotations
+        might correspond to benign tumors, however it is not very clearly stated.
+
+        We tried to contact the team that published the dataset, but after failing to get an answer
+        from them we decided, to be safe, to remove the non annotated samples, in
+        order to avoid wrongfully inferring their label. This resulted in the total removal of
+        728 breast samples, with 2 images/views each, corresponding to  28% of the dataset.
+
 2. We group all images by breast, i.e. each group contain two views of the same breast.
    This makes sure that no two splits contain images of the same breast, which would
    induce information leakage.
@@ -157,7 +172,6 @@ split. We therefore make our own through the following steps:
 #+BEGIN_SRC python :session :exports results :results output
 data_path = Path('../data')
 df = pd.read_csv(data_path / 'meta-images-split.csv')
-
 print(df.groupby(['split', 'classification', 'abnormality']).size())
 #+END_SRC
 
@@ -184,6 +198,14 @@ val    Benign          both              32
                        mass             294
 dtype: int64
 #+end_example
+
+Our splits sum-up to:
+#+BEGIN_SRC python :session :exports results :results output
+print(f'num. of images: {df.shape[0]}')
+#+END_SRC
+
+#+RESULTS:
+: num. of images: 3744
 
 [fn:reco] https://www.cancerimagingarchive.net/collection/cmmd/
 
@@ -225,9 +247,12 @@ by augmenting the main objective with
 regressing on the breast density,
 we choose to add the auxiliary task of identifying abnormalities.
 
-Although breast density is another useful indicator, we do not have this information for the CMMD dataset. The challenge of this auxiliary tasks lies in the fact, that unlike image laterality or breast density, the abnormality type is less obvious in the mammography image, and also, as mentioned above, some views may not contain it at all.
+The challenge of this auxiliary task lies
+in the fact, that unlike image laterality or breast density, the abnormality type
+is less obvious in the mammograms, and also, as mentioned above, some views
+may not contain it at all.
 
-Furthermore, we learn from [cite:@azam21] that overall, pathological and sane
+Our intuition here comes from [cite:@azam21], who claims that overall, pathological and sane
 cases show different /forms/ of calcification, i.e. malignant cases show smaller and clustered
 microcalcifications, while benign cases tend to create large blobs.
 
@@ -244,7 +269,7 @@ the abnormality label provided by domain experts.
 The studies containing both type of abnormalities are excluded from this, due to the added noise that would be introduced since we cannot, without the help of an expert, know which abnormality type is responsible for the label.
 
 In these branches, we implement similar aggregation strategies
-given in Sec. [[multiview]].
+as the ones given in Sec. [[multiview]].
 
 ** Architecture
 
@@ -282,8 +307,8 @@ the total loss $\mathcal{L}$:
 \mathcal{L} = \lambda_{t}\mathcal{L}_{t} + \lambda_{a}\mathcal{L}_{a}
 \end{equation}
 
-Where $\mathcal{L}_t$ and $\mathcal{L}_a$ optimize for tumor type
-and abnormality, respectively.
+Where $\mathcal{L}_t$ and $\mathcal{L}_a$ are cross-entropy losses that optimize
+for tumor type and abnormality, respectively.
 
 After manual tuning, we set $\lambda_t=1$ for all experiments,
 and $\lambda_a=0.3$ when we activate the auxiliary task, and $0$ otherwise.
@@ -311,7 +336,8 @@ on the testing dataset for each of the following named configurations:
 - ~output~: Mean probability output
 
 Our results are sorted according to AUC(ROC) metric.
-We also provide the average precision (~AP~), i.e. the area under the PR-RC curve.
+We also provide the average precision (~AP~), i.e. the area under the PR-RC curve, since
+it is generally considered more appropriate for imbalanced datasets.
 
 Another experimental parameter, ~with aux task~, takes value ~True~ when we jointly optimize for the
 auxiliary task that classifies abnormalities.
@@ -343,11 +369,14 @@ with pd.option_context('display.float_format', '{:0.3f}'.format):
 Our best results are achieved using the ~mean-feats~ fusion mode and
 optimizing for the auxiliary task.
 Comparing the same configuration but with the auxiliary task disactivated,
-we note that our multi-tasking approach brings an improvement of $15\%$ on the main task.
+we note that our multi-tasking approach brings an improvement of $1.5\%$ on the main task.
+
+Also, our best model improves on the baseline model
+(output fusion mode, no aux. task) by $12\%$.
 
 Interestingly, the ~concat-feats~ mode performs very poorly.
 We hypothesize that this might be due to the fact
-that we do not take into account the view-angle into account when
+that we do not take into account the order of the view-angle when
 concatenating.
 
 * Discussion, Conclusion and Future Works
@@ -361,10 +390,11 @@ we devised a number of techniques to smooth-out these inconsistency by
 leveraging multi-view and auxiliary task objectives.
 
 We showed that the two latter upgrades bring promising improvements.
-However, we wish to emphasize that the attained performance-level remain low.
-Importantly, our best model reaches performance-levels that lie substantially
+However, we wish to emphasize that the attained performance-level remain relatively low.
+Importantly, our best model reaches performance-levels that lie
 below the state-of-the-art [cite:@tardy22], while being technically more involved.
-This might be due to differences in data curation, and/or splitting strategies.
+In particular, authors report average AUC around $0.7$ without auxiliary task
+and elaborate feature fusion technique. This would need to be investigated.
 
 Also, we believe that the proposed auxiliary task could bring much stronger
 improvement, provided that abnormalities are labelled according to their actual
