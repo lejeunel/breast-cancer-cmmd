@@ -260,7 +260,7 @@ We train both our backbone and classification heads in an end-to-end manner thro
 gradient descent using a cross-validation strategy.
 We leverage the training/validation splits described in Sec. [[split]], and train for
 $20$ epochs, where each epoch contains $50$ randomly sampled mini-batches,
-where each mini-batch contains $16$ images, i.e. $8$ breasts.
+and each mini-batch contains $16$ images, i.e. $8$ breasts.
 
 Our gradients are computed using the Adam algorithm with a learning rate of
 $5 \times 10^{-5}$.
@@ -307,6 +307,11 @@ with pd.option_context('display.float_format', '{:0.3f}'.format):
 :    max-feats           False     0.566 0.745
 : concat-feats            True     0.494 0.720
 : concat-feats           False     0.410 0.662
+
+Our best results are achieved using the ~mean-feats~ fusion mode and
+optimizing for the auxiliary task.
+Compared with the same configuration but with the auxiliary task disactivated,
+we infer that optimizing both tasks together brings an improvement of $15\%$ on the main task.
 
 Interestingly, the ~concat-feats~ mode performs very poorly.
 We hypothesize that this might be due to the fact

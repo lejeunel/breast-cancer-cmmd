@@ -1,4 +1,4 @@
-% Created 2024-06-23 Sun 10:16
+% Created 2024-06-23 Sun 10:22
 % Intended LaTeX compiler: pdflatex
 \documentclass[11pt]{article}
 \usepackage[utf8]{inputenc}
@@ -35,7 +35,7 @@
 
 
 \section{Introduction}
-\label{sec:orgd614602}
+\label{sec:org13cab60}
 
 We aim to develop a complete pipeline that predicts the malignancy of tumors contained
 in mammograms using a modern supervised Machine Learning method.
@@ -61,10 +61,10 @@ different configurations with the state-of-the-art.
 Last, we conclude by giving an outlook and suggest possible improvements.
 
 \section{The Chinese Mammography Database (CMMD)}
-\label{sec:orgbf2ec7d}
+\label{sec:org97bf856}
 
 \subsection{\label{screening}Screening}
-\label{sec:org9160640}
+\label{sec:orgeb1f31c}
 
 We use the publicly available Chinese Mammography Database (CMMD) \autocite{cai23},
 which originally contains \(\approx 1871\) patients screened for breast cancer.
@@ -80,7 +80,7 @@ prior to mammography.
 This reduces the number of patients to \(1775\).
 
 \subsection{Annotations}
-\label{sec:org55155af}
+\label{sec:org1870978}
 
 Each \emph{breast} is analyzed by domain experts so as to assign the following
 target variables:
@@ -93,7 +93,7 @@ subtype information (possibly missing).
 \end{itemize}
 
 \subsection{\label{limitations}Limitations}
-\label{sec:orgbd84c25}
+\label{sec:orgd231c76}
 
 The CMMD dataset is challenging to use in a Machine Learning setting.
 Indeed, for a ML practitioner, coherent labels are crucial to fully exploit
@@ -126,7 +126,7 @@ we choose to investigate on simple arithmetic operations as part of the
 training phase.
 
 \subsection{Exploration}
-\label{sec:org3866a35}
+\label{sec:orgfb9ab0f}
 
 We show the distribution of abnormalities with respect to tumor type on Fig. \ref{fig:distributions},
 and show example images on Fig. \ref{fig:preview}.
@@ -144,7 +144,7 @@ and show example images on Fig. \ref{fig:preview}.
 \end{figure}
 
 \subsection{\label{split}Curation and Splitting}
-\label{sec:orgf6254a7}
+\label{sec:org6c32b3b}
 
 As we endeavour to use the CMMD dataset to produce an ML solution, we
 perform a curation step and split all images in a train, validation, and testing splits.
@@ -167,7 +167,7 @@ must contain the same proportion of \(y_t\) and \(y_a\). Our splits contain \(60
 \end{enumerate}
 
 \section{Methods}
-\label{sec:org5862d6e}
+\label{sec:org1bcd5c6}
 
 We aim to learn a predictor that determines whether a given mammography study
 contains a malignant or benign tumor.
@@ -178,7 +178,7 @@ and follows with two parallel classification heads.
 We now develop our composite objectives and multi-view classification approaches.
 
 \subsection{\label{multiview}Learning with Multiple Views}
-\label{sec:orgfa21d5f}
+\label{sec:org2ba3e06}
 
 Following previous works in breast cancer screening,
 we implement and test several ways to handle the fact that
@@ -200,7 +200,7 @@ vectors and proceed as in previous approaches.
 \end{enumerate}
 
 \subsection{Auxiliary Task}
-\label{sec:org0c9880c}
+\label{sec:orgdcf8a43}
 
 We investigate the relevance of multi-task learning (MTL) in breast cancer screening,
 While authors in \autocite{tardy22} demonstrate the benefits of MTL
@@ -231,7 +231,7 @@ In these branches, we implement and investigate similar aggregation strategies
 given in Sec. \ref{multiview}.
 
 \subsection{Architecture}
-\label{sec:org4dc3a82}
+\label{sec:org788f7e3}
 
 Our model is a Convolution Neural Network based on the ResNet34
 architecture \autocite{he15}, which encodes each image into a \(512\) -dimensional feature
@@ -247,7 +247,7 @@ We give an illustration of our model in Fig. \ref{fig:model}.
 \end{figure}
 
 \subsection{Preprocessing, Training, and Validation}
-\label{sec:org619eab6}
+\label{sec:orgc3dbe09}
 
 We convert the original images given as DICOM series into 8-bit images,
 and rescale these from \(1914 \times 2294\) to \(1024 \times 1024\) pixels. We found that this
@@ -280,7 +280,7 @@ We train both our backbone and classification heads in an end-to-end manner thro
 gradient descent using a cross-validation strategy.
 We leverage the training/validation splits described in Sec. \ref{split}, and train for
 \(20\) epochs, where each epoch contains \(50\) randomly sampled mini-batches,
-where each mini-batch contains \(16\) images, i.e. \(8\) breasts.
+and each mini-batch contains \(16\) images, i.e. \(8\) breasts.
 
 Our gradients are computed using the Adam algorithm with a learning rate of
 \(5 \times 10^{-5}\).
@@ -289,7 +289,7 @@ For fair comparison with the state-of-the-art \autocite{walsh22}, we select the 
 as to maximize the area under the ROC curve on the validation set.
 
 \section{Results}
-\label{sec:orgd9b48bc}
+\label{sec:orgfcbd851}
 
 We compute performances on the benign/malignant classification task
 on the testing dataset for each of the following named configurations:
@@ -307,13 +307,30 @@ We also provide the average precision (\texttt{AP}), i.e. the area under the PR-
 Another experimental parameter, \texttt{with aux task}, takes value \texttt{True} when we jointly optimize for the
 auxiliary task that classifies abnormalities.
 
+\begin{verbatim}
+ fusion mode  with aux. task  AUC(ROC)    AP
+  mean-feats            True     0.679 0.830
+  mean-feats           False     0.669 0.825
+      output            True     0.656 0.801
+      output           False     0.597 0.776
+   max-feats            True     0.580 0.755
+   max-feats           False     0.566 0.745
+concat-feats            True     0.494 0.720
+concat-feats           False     0.410 0.662
+\end{verbatim}
+
+
+Our best results are achieved using the \texttt{mean-feats} fusion mode and
+optimizing for the auxiliary task.
+By ablation, the latter task brings an improvement of \(15\%\).
+
 Interestingly, the \texttt{concat-feats} mode performs very poorly.
 We hypothesize that this might be due to the fact
 that we do not take into account the view-angle into account when
 concatenating.
 
 \section{Discussion, Conclusion and Future Works}
-\label{sec:org83c54a7}
+\label{sec:org1cd8492}
 
 We contributed a method to discriminate X-ray image sets of breasts into malignant and benign
 categories.
