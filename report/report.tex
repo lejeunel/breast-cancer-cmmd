@@ -1,4 +1,4 @@
-% Created 2024-06-23 Sun 10:22
+% Created 2024-06-23 Sun 12:04
 % Intended LaTeX compiler: pdflatex
 \documentclass[11pt]{article}
 \usepackage[utf8]{inputenc}
@@ -19,11 +19,11 @@
 \bibliography{refs.bib}
 \author{Laurent Lejeune}
 \date{\today}
-\title{Breast Cancer Screening from Mammography Images\\\medskip
+\title{Breast Cancer Screening from Mammograms\\\medskip
 \large Investigating Multi-View and Multi-Task Approaches}
 \hypersetup{
  pdfauthor={Laurent Lejeune},
- pdftitle={Breast Cancer Screening from Mammography Images},
+ pdftitle={Breast Cancer Screening from Mammograms},
  pdfkeywords={},
  pdfsubject={},
  pdfcreator={Emacs 29.3 (Org mode 9.6.24)}, 
@@ -35,7 +35,7 @@
 
 
 \section{Introduction}
-\label{sec:org13cab60}
+\label{sec:org5b3046c}
 
 We aim to develop a complete pipeline that predicts the malignancy of tumors contained
 in mammograms using a modern supervised Machine Learning method.
@@ -56,15 +56,16 @@ we merge multiple view-angles of the same breast-sample,
 and describe our architecture and training strategy.
 
 In the Results section, we provide quantitative figures to compare the performance of our
-different configurations with the state-of-the-art.
+different configurations with the state-of-the-art, and emphasize how our
+multi-task and multi-view approaches improve on the baseline method.
 
 Last, we conclude by giving an outlook and suggest possible improvements.
 
 \section{The Chinese Mammography Database (CMMD)}
-\label{sec:org97bf856}
+\label{sec:orgfe5dc74}
 
 \subsection{\label{screening}Screening}
-\label{sec:orgeb1f31c}
+\label{sec:orgfb6ccc0}
 
 We use the publicly available Chinese Mammography Database (CMMD) \autocite{cai23},
 which originally contains \(\approx 1871\) patients screened for breast cancer.
@@ -80,7 +81,7 @@ prior to mammography.
 This reduces the number of patients to \(1775\).
 
 \subsection{Annotations}
-\label{sec:org1870978}
+\label{sec:org66d5058}
 
 Each \emph{breast} is analyzed by domain experts so as to assign the following
 target variables:
@@ -93,7 +94,7 @@ subtype information (possibly missing).
 \end{itemize}
 
 \subsection{\label{limitations}Limitations}
-\label{sec:orgd231c76}
+\label{sec:orgfa68164}
 
 The CMMD dataset is challenging to use in a Machine Learning setting.
 Indeed, for a ML practitioner, coherent labels are crucial to fully exploit
@@ -126,7 +127,7 @@ we choose to investigate on simple arithmetic operations as part of the
 training phase.
 
 \subsection{Exploration}
-\label{sec:orgfb9ab0f}
+\label{sec:orge6c4a4b}
 
 We show the distribution of abnormalities with respect to tumor type on Fig. \ref{fig:distributions},
 and show example images on Fig. \ref{fig:preview}.
@@ -144,7 +145,7 @@ and show example images on Fig. \ref{fig:preview}.
 \end{figure}
 
 \subsection{\label{split}Curation and Splitting}
-\label{sec:org6c32b3b}
+\label{sec:org873477e}
 
 As we endeavour to use the CMMD dataset to produce an ML solution, we
 perform a curation step and split all images in a train, validation, and testing splits.
@@ -158,8 +159,8 @@ split. We therefore make our own through the following steps:
 \begin{enumerate}
 \item We discard all images that have no labels \(y_t\) and \(y_a\).
 \item We group all images by breast, i.e. each group contain two views of the same breast.
-This makes sure that no two split contain images of the same breast, which would
-incur information leakage.
+This makes sure that no two splits contain images of the same breast, which would
+induce information leakage.
 \item To perform cross-validation, we divide all groups using a stratified
 shuffled splitting strategy, where each split
 must contain the same proportion of \(y_t\) and \(y_a\). Our splits contain \(60\%\),
@@ -167,32 +168,32 @@ must contain the same proportion of \(y_t\) and \(y_a\). Our splits contain \(60
 \end{enumerate}
 
 \section{Methods}
-\label{sec:org1bcd5c6}
+\label{sec:org0a553cc}
 
 We aim to learn a predictor that determines whether a given mammography study
 contains a malignant or benign tumor.
 
 At its core, our model extracts features using a Convolutional Neural Network,
-and follows with two parallel classification heads.
+and follows with several parallel classification heads.
 
 We now develop our composite objectives and multi-view classification approaches.
 
 \subsection{\label{multiview}Learning with Multiple Views}
-\label{sec:org2ba3e06}
+\label{sec:org3e12048}
 
 Following previous works in breast cancer screening,
 we implement and test several ways to handle the fact that
-labels are assigned to studies, and not individual images.
+labels are assigned to breasts, and not individual images.
 
 This problem setting is referred to as ``Multi-View''.
 In particular, we implement:
 
 \begin{enumerate}
-\item \textbf{Averaging of output probabilities}:  We forward-pass all images of the same study
+\item \textbf{Averaging of output probabilities}:  We forward-pass all images of the same breast
 and compute the mean probability output prior to computing the loss and applying
 back-propagation.
 \item \textbf{Averaging of features}: Following \autocite{geras17} \autocite{seeland21}, we first compute the mean feature vector of all images of the same
-study. We then pass this vector into the classification layer and proceed as in
+breast. We then pass this vector into the classification layer and proceed as in
 previous approach.
 \item \textbf{Max aggregation of features}: Similar to previous approach, but we compute the max descriptors instead.
 \item \textbf{Feature concatenation}: Following \autocite{wu19} \autocite{chen22}, we concatenate feature
@@ -200,7 +201,7 @@ vectors and proceed as in previous approaches.
 \end{enumerate}
 
 \subsection{Auxiliary Task}
-\label{sec:orgdcf8a43}
+\label{sec:org74e4ee0}
 
 We investigate the relevance of multi-task learning (MTL) in breast cancer screening,
 While authors in \autocite{tardy22} demonstrate the benefits of MTL
@@ -227,11 +228,11 @@ These artificial labels are trivially derived from the tumor-classification and
 the abnormality label provided by domain experts.
 The studies containing both type of abnormalities are excluded from this, due to the added noise that would be introduced since we cannot, without the help of an expert, know which abnormality type is responsible for the label.
 
-In these branches, we implement and investigate similar aggregation strategies
+In these branches, we implement similar aggregation strategies
 given in Sec. \ref{multiview}.
 
 \subsection{Architecture}
-\label{sec:org788f7e3}
+\label{sec:org81206e9}
 
 Our model is a Convolution Neural Network based on the ResNet34
 architecture \autocite{he15}, which encodes each image into a \(512\) -dimensional feature
@@ -247,10 +248,10 @@ We give an illustration of our model in Fig. \ref{fig:model}.
 \end{figure}
 
 \subsection{Preprocessing, Training, and Validation}
-\label{sec:orgc3dbe09}
+\label{sec:org0f22a3e}
 
 We convert the original images given as DICOM series into 8-bit images,
-and rescale these from \(1914 \times 2294\) to \(1024 \times 1024\) pixels. We found that this
+and rescale these from \(2048 \times 2454\) to \(1024 \times 1024\) pixels. We found that this
 is a good compromise as it conserves most fine-grained details while
 reducing computational burden.
 
@@ -289,7 +290,7 @@ For fair comparison with the state-of-the-art \autocite{walsh22}, we select the 
 as to maximize the area under the ROC curve on the validation set.
 
 \section{Results}
-\label{sec:orgfcbd851}
+\label{sec:orgaa0ffcc}
 
 We compute performances on the benign/malignant classification task
 on the testing dataset for each of the following named configurations:
@@ -322,7 +323,8 @@ concat-feats           False     0.410 0.662
 
 Our best results are achieved using the \texttt{mean-feats} fusion mode and
 optimizing for the auxiliary task.
-By ablation, the latter task brings an improvement of \(15\%\).
+Comparing the same configuration but with the auxiliary task disactivated,
+we note that our multi-tasking approach brings an improvement of \(15\%\) on the main task.
 
 Interestingly, the \texttt{concat-feats} mode performs very poorly.
 We hypothesize that this might be due to the fact
@@ -330,15 +332,15 @@ that we do not take into account the view-angle into account when
 concatenating.
 
 \section{Discussion, Conclusion and Future Works}
-\label{sec:org1cd8492}
+\label{sec:org565de16}
 
 We contributed a method to discriminate X-ray image sets of breasts into malignant and benign
 categories.
 
 Given that the proposed task is known to be hard, and further made more difficult by
 the fact that the CMMD dataset has noisy and inconsistent labels,
-we proposed techniques to smooth-out these inconsistency by leveraging multi-view and
-auxiliary task objectives.
+we devised a number of techniques to smooth-out these inconsistency by
+leveraging multi-view and auxiliary task objectives.
 
 We showed that the two latter upgrades bring promising improvements.
 However, we wish to emphasize that the attained performance-level remain low.

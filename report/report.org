@@ -44,7 +44,8 @@ we merge multiple view-angles of the same breast-sample,
 and describe our architecture and training strategy.
 
 In the Results section, we provide quantitative figures to compare the performance of our
-different configurations with the state-of-the-art.
+different configurations with the state-of-the-art, and emphasize how our
+multi-task and multi-view approaches improve on the baseline method.
 
 Last, we conclude by giving an outlook and suggest possible improvements.
 
@@ -146,8 +147,8 @@ split. We therefore make our own through the following steps:
 
 1. We discard all images that have no labels $y_t$ and $y_a$.
 2. We group all images by breast, i.e. each group contain two views of the same breast.
-   This makes sure that no two split contain images of the same breast, which would
-   incur information leakage.
+   This makes sure that no two splits contain images of the same breast, which would
+   induce information leakage.
 3. To perform cross-validation, we divide all groups using a stratified
     shuffled splitting strategy, where each split
     must contain the same proportion of $y_t$ and $y_a$. Our splits contain $60\%$,
@@ -161,7 +162,7 @@ We aim to learn a predictor that determines whether a given mammography study
 contains a malignant or benign tumor.
 
 At its core, our model extracts features using a Convolutional Neural Network,
-and follows with two parallel classification heads.
+and follows with several parallel classification heads.
 
 We now develop our composite objectives and multi-view classification approaches.
 
@@ -169,16 +170,16 @@ We now develop our composite objectives and multi-view classification approaches
 
 Following previous works in breast cancer screening,
 we implement and test several ways to handle the fact that
-labels are assigned to studies, and not individual images.
+labels are assigned to breasts, and not individual images.
 
 This problem setting is referred to as "Multi-View".
 In particular, we implement:
 
-1. *Averaging of output probabilities*:  We forward-pass all images of the same study
+1. *Averaging of output probabilities*:  We forward-pass all images of the same breast
     and compute the mean probability output prior to computing the loss and applying
     back-propagation.
 2. *Averaging of features*: Following [cite:@geras17] [cite:@seeland21], we first compute the mean feature vector of all images of the same
-   study. We then pass this vector into the classification layer and proceed as in
+   breast. We then pass this vector into the classification layer and proceed as in
    previous approach.
 3. *Max aggregation of features*: Similar to previous approach, but we compute the max descriptors instead.
 4. *Feature concatenation*: Following [cite:@wu19] [cite:@chen22], we concatenate feature
@@ -211,7 +212,7 @@ These artificial labels are trivially derived from the tumor-classification and
 the abnormality label provided by domain experts.
 The studies containing both type of abnormalities are excluded from this, due to the added noise that would be introduced since we cannot, without the help of an expert, know which abnormality type is responsible for the label.
 
-In these branches, we implement and investigate similar aggregation strategies
+In these branches, we implement similar aggregation strategies
 given in Sec. [[multiview]].
 
 ** Architecture
@@ -310,8 +311,8 @@ with pd.option_context('display.float_format', '{:0.3f}'.format):
 
 Our best results are achieved using the ~mean-feats~ fusion mode and
 optimizing for the auxiliary task.
-Compared with the same configuration but with the auxiliary task disactivated,
-we infer that optimizing both tasks together brings an improvement of $15\%$ on the main task.
+Comparing the same configuration but with the auxiliary task disactivated,
+we note that our multi-tasking approach brings an improvement of $15\%$ on the main task.
 
 Interestingly, the ~concat-feats~ mode performs very poorly.
 We hypothesize that this might be due to the fact
@@ -325,8 +326,8 @@ categories.
 
 Given that the proposed task is known to be hard, and further made more difficult by
 the fact that the CMMD dataset has noisy and inconsistent labels,
-we proposed techniques to smooth-out these inconsistency by leveraging multi-view and
-auxiliary task objectives.
+we devised a number of techniques to smooth-out these inconsistency by
+leveraging multi-view and auxiliary task objectives.
 
 We showed that the two latter upgrades bring promising improvements.
 However, we wish to emphasize that the attained performance-level remain low.
