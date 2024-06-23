@@ -15,7 +15,7 @@ We provide two ways to run our pipeline:
 
 * Project's Structure
 
-We give here some indications on how the project is organized started from the root-level directory:
+We give here some indications on how the project is organized starting from the root-level directory:
 - ~assets~: Contains base meta-data and annotation file for the CMMD dataset. These
   are necessary in the early stage of our pipeline to download raw-data and assign semantic labels to
   images.
