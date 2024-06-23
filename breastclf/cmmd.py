@@ -14,7 +14,7 @@ from skimage.transform import resize
 from tqdm import tqdm
 from typing_extensions import Annotated
 
-IMAGE_DOWNLOAD_URL = r"https://services.cancerimagingarchive.net/nbia-api/services/v1/getImage?SeriesInstanceUID={}"
+IMAGE_DOWNLOAD_URL = r"https://services.cancerimagingarchive.net/services/v4/TCIA/query/getImage?SeriesInstanceUID={}"
 DICOM_PATIENT_ID_TAG = (0x0010, 0x0020)
 DICOM_IMG_LATERALITY_TAG = (0x0020, 0x0062)
 AMBIGUOUS_IMAGES = [
@@ -52,6 +52,7 @@ def _fetch_and_save_one_patient(
 
     url = IMAGE_DOWNLOAD_URL.format(series_uid)
     response = requests.get(url)
+    # print(f"response: {response}")
 
     zip_bytes = response._content
     zf = zipfile.ZipFile(io.BytesIO(zip_bytes), "r")
@@ -84,7 +85,6 @@ def fetch_raw_data(
     """
     Fetch DICOM files from server using provided meta-data and save to disk
     """
-    import pandas as pd
 
     meta = pd.read_csv(meta_path)
 
@@ -123,7 +123,6 @@ def merge_meta_and_annotations(meta: Path, annotations: Path, out: Path):
     Builds a single meta-data file from list of series (one row per patient),
     and annotations (one row per label)
     """
-    import pandas as pd
 
     if out.exists():
         print(f"found file {out}, we are done.")

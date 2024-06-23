@@ -230,7 +230,7 @@ We give an illustration of our model in Fig. [[fig:model]].
 ** Preprocessing, Training, and Validation
 
 We convert the original images given as DICOM series into 8-bit images,
-and rescale these from $1914 \times 2294$ to $1024 \times 1024$ pixels. We found that this
+and rescale these from $2048 \times 2454$ to $1024 \times 1024$ pixels. We found that this
 is a good compromise as it conserves most fine-grained details while
 reducing computational burden.
 

@@ -72,7 +72,7 @@ ml-splitted-dataset: png-images
 ## train and test our best model
 best-model: ml-splitted-dataset
 	@echo ">>> Training and testing best model"
-	@$(DOCKER_RUN) $(PYTHON_EXEC) breastclf/main.py ml run-experiments.py $(PYTHON_GPU) --best-only
+	@$(DOCKER_RUN) $(PYTHON_EXEC) breastclf/main.py ml run-experiments $(PYTHON_GPU) --best-only
 
 ## train and test all models
 all: ml-splitted-dataset
@@ -86,8 +86,7 @@ clean:
 
 .DEFAULT_GOAL := show-help
 
-.PHONY: show-help
-show-help:
+help:
 	@echo "$$(tput bold)Available rules:$$(tput sgr0)"
 	@sed -n -e "/^## / { \
 		h; \
@@ -103,7 +102,6 @@ show-help:
 		s/\\n/ /g; \
 		p; \
 	}" ${MAKEFILE_LIST} \
-	| LC_ALL='C' sort --ignore-case \
 	| awk -F '---' \
 		-v ncol=$$(tput cols) \
 		-v indent=19 \
