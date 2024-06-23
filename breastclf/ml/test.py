@@ -12,6 +12,9 @@ from sklearn.metrics import (
     roc_auc_score,
     f1_score,
     average_precision_score,
+    precision_score,
+    recall_score,
+    matthews_corrcoef,
 )
 from tqdm import tqdm
 from typing_extensions import Annotated
@@ -87,6 +90,9 @@ def test(
     for field_name, metric_fn, thr in [
         ("AUC(ROC)", roc_auc_score, None),
         ("F1", f1_score, 0.5),
+        ("PR", precision_score, 0.5),
+        ("RC", recall_score, 0.5),
+        ("MCC", matthews_corrcoef, 0.5),
         ("AP", average_precision_score, None),
     ]:
         y_true = meta["tgt_type"]

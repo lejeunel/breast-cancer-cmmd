@@ -7,13 +7,28 @@ along with base meta-data files with URLs to meta-data and annotations.
 
 We provide two ways to run our pipeline:
 
-1. [[*Makefile/Docker Interface]]: A Makefile is provided that defines all pipeline steps and
+1. [[#makefile-docker][Makefile/Docker Interface]]: A Makefile is provided that defines all pipeline steps and
   their dependencies. Under the hood, we leverage a docker container to execute commands.
-2. [[*Python CLI]]: This requires that the user must install the provided package
-   and run commands manually. This is a bit more involved but allows for more flexibility.
+2. [[#python-cli][Python CLI]]: This requires the installation of the provided package on the local machine.
+   Also, commands must be executed manually. This is more involved but allows
+    for more flexibility.
+
+* Project's Structure
+
+We give here some indications on how the project is organized started from the root-level directory:
+- ~assets~: Contains base meta-data and annotation file for the CMMD dataset. These
+  are necessary in the early stage of our pipeline to download raw-data and assign semantic labels to
+  images.
+- ~breastclf~: Root directory of our Python project. Contains routines to build dataset and produce
+  our ML models and results from scratch.
+- ~report~: Contains source files to generate our report, including images and vector graphics.
+- ~best-results~: Raw predictions obtained with our best model, meta-data with train/val/test splits, and aggregate performance metrics.
 
 * Usage
-** <<docker>>Makefile/Docker Interface
+** Makefile/Docker Interface
+  :PROPERTIES:
+  :CUSTOM_ID: makefile-docker
+  :END:
 
 We make available a Docker image on DockerHub, along with
 a ~Makefile~ to facilitate reproducibility and
@@ -31,10 +46,13 @@ Read the makefile target definitions with:
 make help
  #+end_src
 
-** <<pycli>>Python CLI
+** Python CLI
+  :PROPERTIES:
+  :CUSTOM_ID: python-cli
+  :END:
 
 - Install [[https://python-poetry.org/docs/#installation][Poetry]] in user-space.
-- move to project's root and install project with:
+- Move to project's root and install project with:
 
 #+begin_src shell
 poetry install
