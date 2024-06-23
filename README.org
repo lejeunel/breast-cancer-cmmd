@@ -46,6 +46,18 @@ Read the makefile target definitions with:
 make help
  #+end_src
 
+Run full pipeline to produce our best predictor:
+
+ #+begin_src shell
+make best-model
+ #+end_src
+
+Run ful pipeline to generate all tested models:
+
+ #+begin_src shell
+make all
+ #+end_src
+
 ** Python CLI
   :PROPERTIES:
   :CUSTOM_ID: python-cli
