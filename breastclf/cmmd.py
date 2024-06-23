@@ -76,15 +76,15 @@ def fetch_raw_data(
     meta_path: Annotated[Path, typer.Argument(help="path to csv file containing UIDs")],
     out_path: Annotated[
         Path,
-        typer.Argument(
-            help="output path where DICOM files are saved", exists=True, writable=True
-        ),
+        typer.Argument(help="output path where DICOM files are saved"),
     ],
     n_workers: Annotated[int, typer.Option("-w", help="Number of worker threads")] = 32,
 ):
     """
     Fetch DICOM files from server using provided meta-data and save to disk
     """
+
+    out_path.mkdir(parents=True, exist_ok=True)
 
     meta = pd.read_csv(meta_path)
 
@@ -239,13 +239,14 @@ def build_per_image_meta(meta: Path, dicom_root_path: Path, out: Path):
 def dicom_to_png(
     meta: Path,
     dicom_root_path: Path,
-    out_root_path: Annotated[Path, typer.Argument(help="output path", exists=True)],
+    out_root_path: Annotated[Path, typer.Argument(help="output path")],
     width: Annotated[int, typer.Option(help="Output width in pixel")] = 2048,
 ):
     """
     Convert DICOM images to PNG.
     """
 
+    out_root_path.mkdir(parents=True, exist_ok=True)
     meta = pd.read_csv(meta)
     out_paths = [
         out_root_path / r.serie_id / (r.filename.split(".")[0] + ".png")
