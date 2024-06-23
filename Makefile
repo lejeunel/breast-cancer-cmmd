@@ -34,7 +34,7 @@ build-image:
 
 ## for development: push docker image to docker-hub
 push-image:
-	@echo ">>> pusing image"
+	@echo ">>> pushing image"
 	$(DOCKER_EXEC) push $(DOCKER_TAGGED_IMAGE)
 
 ## download raw DICOM data
