@@ -154,6 +154,37 @@ split. We therefore make our own through the following steps:
     must contain the same proportion of $y_t$ and $y_a$. Our splits contain $60\%$,
      $20\%$, and $20\%$ of images for the train, validation, and testing set, respectively.
 
+#+BEGIN_SRC python :session :exports results :results output
+data_path = Path('../data')
+df = pd.read_csv(data_path / 'meta-images-split.csv')
+
+print(df.groupby(['split', 'classification', 'abnormality']).size())
+#+END_SRC
+
+#+RESULTS:
+#+begin_example
+split  classification  abnormality
+test   Benign          both              32
+                       calcification     26
+                       mass             164
+       Malignant       both             152
+                       calcification     80
+                       mass             294
+train  Benign          both              96
+                       calcification     76
+                       mass             496
+       Malignant       both             458
+                       calcification    236
+                       mass             886
+val    Benign          both              32
+                       calcification     26
+                       mass             164
+       Malignant       both             152
+                       calcification     80
+                       mass             294
+dtype: int64
+#+end_example
+
 [fn:reco] https://www.cancerimagingarchive.net/collection/cmmd/
 
 * Methods

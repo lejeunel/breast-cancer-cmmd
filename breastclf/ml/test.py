@@ -18,7 +18,9 @@ from typing_extensions import Annotated
 
 
 def test(
-    meta_path: Annotated[Path, typer.Argument(help="path to meta-data csv file")],
+    meta_path: Annotated[
+        Path, typer.Argument(help="path to meta-data csv file", exists=True)
+    ],
     image_root_path: Annotated[Path, typer.Argument(help="root path to image files")],
     run_path: Annotated[Path, typer.Argument(help="root path")],
     n_workers: Annotated[
@@ -38,8 +40,6 @@ def test(
 
     pprint("config:")
     pprint(cfg, expand_all=True)
-
-    assert meta_path.exists(), f"could not find meta-data file at {meta_path}"
 
     dloader = make_dataloaders(
         image_root_path,

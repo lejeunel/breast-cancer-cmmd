@@ -1,4 +1,4 @@
-% Created 2024-06-23 Sun 12:04
+% Created 2024-06-23 Sun 14:03
 % Intended LaTeX compiler: pdflatex
 \documentclass[11pt]{article}
 \usepackage[utf8]{inputenc}
@@ -35,7 +35,7 @@
 
 
 \section{Introduction}
-\label{sec:org5b3046c}
+\label{sec:orgfcd0ae8}
 
 We aim to develop a complete pipeline that predicts the malignancy of tumors contained
 in mammograms using a modern supervised Machine Learning method.
@@ -62,10 +62,10 @@ multi-task and multi-view approaches improve on the baseline method.
 Last, we conclude by giving an outlook and suggest possible improvements.
 
 \section{The Chinese Mammography Database (CMMD)}
-\label{sec:orgfe5dc74}
+\label{sec:orge9dd15b}
 
 \subsection{\label{screening}Screening}
-\label{sec:orgfb6ccc0}
+\label{sec:org5a294b0}
 
 We use the publicly available Chinese Mammography Database (CMMD) \autocite{cai23},
 which originally contains \(\approx 1871\) patients screened for breast cancer.
@@ -81,7 +81,7 @@ prior to mammography.
 This reduces the number of patients to \(1775\).
 
 \subsection{Annotations}
-\label{sec:org66d5058}
+\label{sec:org5d7ee6c}
 
 Each \emph{breast} is analyzed by domain experts so as to assign the following
 target variables:
@@ -94,7 +94,7 @@ subtype information (possibly missing).
 \end{itemize}
 
 \subsection{\label{limitations}Limitations}
-\label{sec:orgfa68164}
+\label{sec:orgf2bae67}
 
 The CMMD dataset is challenging to use in a Machine Learning setting.
 Indeed, for a ML practitioner, coherent labels are crucial to fully exploit
@@ -127,7 +127,7 @@ we choose to investigate on simple arithmetic operations as part of the
 training phase.
 
 \subsection{Exploration}
-\label{sec:orge6c4a4b}
+\label{sec:org30791cd}
 
 We show the distribution of abnormalities with respect to tumor type on Fig. \ref{fig:distributions},
 and show example images on Fig. \ref{fig:preview}.
@@ -145,7 +145,7 @@ and show example images on Fig. \ref{fig:preview}.
 \end{figure}
 
 \subsection{\label{split}Curation and Splitting}
-\label{sec:org873477e}
+\label{sec:org7228d45}
 
 As we endeavour to use the CMMD dataset to produce an ML solution, we
 perform a curation step and split all images in a train, validation, and testing splits.
@@ -167,8 +167,31 @@ must contain the same proportion of \(y_t\) and \(y_a\). Our splits contain \(60
  \(20\%\), and \(20\%\) of images for the train, validation, and testing set, respectively.
 \end{enumerate}
 
+\begin{verbatim}
+split  classification  abnormality  
+test   Benign          both              32
+                       calcification     26
+                       mass             164
+       Malignant       both             152
+                       calcification     80
+                       mass             294
+train  Benign          both              96
+                       calcification     76
+                       mass             496
+       Malignant       both             458
+                       calcification    236
+                       mass             886
+val    Benign          both              32
+                       calcification     26
+                       mass             164
+       Malignant       both             152
+                       calcification     80
+                       mass             294
+dtype: int64
+\end{verbatim}
+
 \section{Methods}
-\label{sec:org0a553cc}
+\label{sec:orgfb261e8}
 
 We aim to learn a predictor that determines whether a given mammography study
 contains a malignant or benign tumor.
@@ -179,7 +202,7 @@ and follows with several parallel classification heads.
 We now develop our composite objectives and multi-view classification approaches.
 
 \subsection{\label{multiview}Learning with Multiple Views}
-\label{sec:org3e12048}
+\label{sec:org0937e47}
 
 Following previous works in breast cancer screening,
 we implement and test several ways to handle the fact that
@@ -201,7 +224,7 @@ vectors and proceed as in previous approaches.
 \end{enumerate}
 
 \subsection{Auxiliary Task}
-\label{sec:org74e4ee0}
+\label{sec:org8c77f58}
 
 We investigate the relevance of multi-task learning (MTL) in breast cancer screening,
 While authors in \autocite{tardy22} demonstrate the benefits of MTL
@@ -232,7 +255,7 @@ In these branches, we implement similar aggregation strategies
 given in Sec. \ref{multiview}.
 
 \subsection{Architecture}
-\label{sec:org81206e9}
+\label{sec:orga43f6c4}
 
 Our model is a Convolution Neural Network based on the ResNet34
 architecture \autocite{he15}, which encodes each image into a \(512\) -dimensional feature
@@ -248,7 +271,7 @@ We give an illustration of our model in Fig. \ref{fig:model}.
 \end{figure}
 
 \subsection{Preprocessing, Training, and Validation}
-\label{sec:org0f22a3e}
+\label{sec:org0be1a44}
 
 We convert the original images given as DICOM series into 8-bit images,
 and rescale these from \(2048 \times 2454\) to \(1024 \times 1024\) pixels. We found that this
@@ -290,7 +313,7 @@ For fair comparison with the state-of-the-art \autocite{walsh22}, we select the 
 as to maximize the area under the ROC curve on the validation set.
 
 \section{Results}
-\label{sec:orgaa0ffcc}
+\label{sec:orgbc224bc}
 
 We compute performances on the benign/malignant classification task
 on the testing dataset for each of the following named configurations:
@@ -332,7 +355,7 @@ that we do not take into account the view-angle into account when
 concatenating.
 
 \section{Discussion, Conclusion and Future Works}
-\label{sec:org565de16}
+\label{sec:orgd6d8ed2}
 
 We contributed a method to discriminate X-ray image sets of breasts into malignant and benign
 categories.
