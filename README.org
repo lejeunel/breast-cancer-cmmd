@@ -7,9 +7,9 @@ along with base meta-data files with URLs to meta-data and annotations.
 
 We provide two ways to run our pipeline:
 
-1. [[docker][Through a high-level interface]]: A Makefile is provided that defines all pipeline steps and
+1. [[*Makefile/Docker Interface]]: A Makefile is provided that defines all pipeline steps and
   their dependencies. Under the hood, we leverage a docker container to execute commands.
-2. [[pycli][Through the Python CLI]]: This requires that the user must install the provided package
+2. [[*Python CLI]]: This requires that the user must install the provided package
    and run commands manually. This is a bit more involved but allows for more flexibility.
 
 * Usage
