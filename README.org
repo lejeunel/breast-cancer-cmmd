@@ -1,7 +1,18 @@
-#+title: A Deep-Learning Approach to Breast Cancer Screening from Mammography Images
+#+title: Breast Cancer Screening from Mammograms
+
+* Introduction
+This repository contains the code that is necessary to train, validate, and test
+the different proposed models.
+
+We provide two ways to run it:
+
+1. Through a high-level interface: A Makefile is provided that defines all pipeline steps and
+  their dependencies. Under the hood, we leverage a docker container to execute commands.
+2. Through the Python CLI: This requires that the user must install the provided package
+   and run commands manually. This is a bit more involved but allows for more flexibility.
 
 * Usage
-** Using the docker engine
+** Makefile/Docker Interface
 
 We make available a Docker image on DockerHub, along with
 a ~Makefile~ to facilitate reproducibility and
@@ -19,7 +30,7 @@ Read the makefile target definitions with:
 make help
  #+end_src
 
-** Using a virtual environment
+** Python CLI
 
 - Install [[https://python-poetry.org/docs/#installation][Poetry]] in user-space.
 - move to project's root and install project with:

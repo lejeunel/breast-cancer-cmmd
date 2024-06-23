@@ -1,19 +1,3 @@
-## ----------------------------------------------------------------------
-## Defines targets and dependencies to run the proposed pipeline.
-## Our targets are run from inside a provided docker image.
-## For persistence, we create and mount local directories.
-## These can be set with the following environment variables:
-##     - BREASTCLF_RUN_DIR: Path where model checkpoints and results are stored.
-##     - BREASTCLF_DATA_DIR: Path where input data (DICOM, PNG, ...) are stored.
-## We also allow to train our models using GPU acceleration with the CUDA
-## library.
-## To do so, set BREAST_USE_CUDA=1, e.g:
-##     BREASTCLF_USE_CUDA=1 make best-model
-## ----------------------------------------------------------------------
-
-help:     ## Show this help.
-	@sed -ne '/@sed/!s/## //p' $(MAKEFILE_LIST)
-
 DOCKER_EXEC := docker
 PYTHON_EXEC := python
 DOCKER_IMAGE := lejeunel379/breastclf
@@ -41,51 +25,102 @@ DOCKER_RUN := $(DOCKER_EXEC) \
 
 default: all
 
-dirs: ## create local directories
+## create local directories
+dirs:
 
 	@echo ">>> Creating output directories"
 	mkdir -p $(BREASTCLF_DATA_DIR)/dicom
 	mkdir -p $(BREASTCLF_DATA_DIR)/png
 	mkdir -p $(BREASTCLF_RUN_DIR)
 
-build-image: ## for development: Build docker image locally
+## for development: Build docker image locally
+build-image:
 	@echo ">>> building image"
 	$(DOCKER_EXEC) build . \
 		-t $(DOCKER_TAGGED_IMAGE)
 
-push-image: ## for development: push docker image to docker-hub
+## for development: push docker image to docker-hub
+push-image:
 	@echo ">>> pusing image"
 	$(DOCKER_EXEC) push $(DOCKER_TAGGED_IMAGE)
 
-raw-data: dirs ## download raw DICOM data
+## download raw DICOM data
+raw-data: dirs
 	@echo ">>> downloading raw data"
 	@$(DOCKER_RUN) $(PYTHON_EXEC) breastclf/main.py cmmd fetch-raw-data -w 32 /assets/meta.csv /data/dicom
 
-annotated-patient-meta: raw-data ## apply annotations to patients
+## apply annotations to patients
+annotated-meta: raw-data
 	@echo ">>> applying annotations to meta-data"
 	@$(DOCKER_RUN) $(PYTHON_EXEC) breastclf/main.py cmmd merge-meta-and-annotations /assets/meta.csv /assets/annotations.csv /data/meta-annotated.csv
 
-parse-and-merge-dicom: annotated-patient-meta ## parse DICOM files
+## parse DICOM files
+parse-dicom: annotated-meta
 	@echo ">>> parsing DICOM files"
 	@$(DOCKER_RUN) $(PYTHON_EXEC) breastclf/main.py cmmd build-per-image-meta /data/meta-annotated.csv /data/dicom /data/meta-images.csv
 
-png-images: parse-and-merge-dicom ## convert DICOM to PNG
+## convert DICOM to PNG
+png-images: parse-dicom
 	@echo ">>> converting DICOM files to PNG"
 	@$(DOCKER_RUN) $(PYTHON_EXEC) breastclf/main.py cmmd dicom-to-png /data/meta-images.csv /data/dicom /data/png
 
-ml-splitted-dataset: png-images ## generate train/val/test splits
+## generate train/val/test splits
+ml-splitted-dataset: png-images
 	@echo ">>> Generating train/val/test splits"
 	@$(DOCKER_RUN) $(PYTHON_EXEC) breastclf/main.py ml split /data/meta-images.csv /data/meta-images-split.csv 0.2 0.2
 
-best-model: ml-splitted-dataset ## train and test our best model
+## train and test our best model
+best-model: ml-splitted-dataset
 	@echo ">>> Training and testing best model"
 	@$(DOCKER_RUN) $(PYTHON_EXEC) breastclf/main.py ml run-experiments.py $(PYTHON_GPU) --best-only
 
-all: ml-splitted-dataset ## train and test all models
+## train and test all models
+all: ml-splitted-dataset
 	@echo ">>> Training and testing all models"
 	@$(DOCKER_RUN) $(PYTHON_EXEC) breastclf/main.py ml run-experiments $(PYTHON_GPU)
 
-
-clean: ## deletes all data, checkpoints, and results
+## deletes all data, checkpoints, and results
+clean:
 	rm -rf $(BREASTCLF_RUN_DIR)/*
 	rm -rf $(BREASTCLF_DATA_DIR)/*
+
+.DEFAULT_GOAL := show-help
+
+.PHONY: show-help
+show-help:
+	@echo "$$(tput bold)Available rules:$$(tput sgr0)"
+	@sed -n -e "/^## / { \
+		h; \
+		s/.*//; \
+		:doc" \
+		-e "H; \
+		n; \
+		s/^## //; \
+		t doc" \
+		-e "s/:.*//; \
+		G; \
+		s/\\n## /---/; \
+		s/\\n/ /g; \
+		p; \
+	}" ${MAKEFILE_LIST} \
+	| LC_ALL='C' sort --ignore-case \
+	| awk -F '---' \
+		-v ncol=$$(tput cols) \
+		-v indent=19 \
+		-v col_on="$$(tput setaf 6)" \
+		-v col_off="$$(tput sgr0)" \
+	'{ \
+		printf "%s%*s%s ", col_on, -indent, $$1, col_off; \
+		n = split($$2, words, " "); \
+		line_length = ncol - indent; \
+		for (i = 1; i <= n; i++) { \
+			line_length -= length(words[i]) + 1; \
+			if (line_length <= 0) { \
+				line_length = ncol - indent - length(words[i]) - 1; \
+				printf "\n%*s ", -indent, " "; \
+			} \
+			printf "%s ", words[i]; \
+		} \
+		printf "\n"; \
+	}' \
+	| more $(shell test $(shell uname) == Darwin && echo '--no-init --raw-control-chars')

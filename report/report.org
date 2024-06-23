@@ -1,4 +1,4 @@
-#+title: Breast Cancer Screening from Mammography Images
+#+title: Breast Cancer Screening from Mammograms
 #+subtitle: Investigating Multi-View and Multi-Task Approaches
 #+setupfile: setupfile.org
 #+OPTIONS: toc:t
