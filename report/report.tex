@@ -1,4 +1,4 @@
-% Created 2024-06-23 Sun 17:56
+% Created 2024-10-16 Wed 07:02
 % Intended LaTeX compiler: pdflatex
 \documentclass[11pt]{article}
 \usepackage[utf8]{inputenc}
@@ -13,7 +13,7 @@
 \usepackage{capt-of}
 \usepackage{hyperref}
 \usepackage[backend=bibtex]{biblatex}
-\addbibresource{/home/laurent/Documents/code/breast-cancer-cmmd/report/refs.bib}
+\addbibresource{refs.bib}
 \usepackage{fancyvrb}
 \DefineVerbatimEnvironment{verbatim}{Verbatim}{framerule=0.5mm,frame=lines,numbers=left,samepage=true}
 \bibliography{refs.bib}
@@ -26,16 +26,15 @@
  pdftitle={Breast Cancer Screening from Mammograms},
  pdfkeywords={},
  pdfsubject={},
- pdfcreator={Emacs 29.3 (Org mode 9.6.24)}, 
+ pdfcreator={Emacs 29.4 (Org mode 9.7.11)}, 
  pdflang={English}}
 \begin{document}
 
 \maketitle
 \tableofcontents
 
-
 \section{Introduction}
-\label{sec:org45b529d}
+\label{sec:org3c61b73}
 
 We aim to develop a complete pipeline that predicts the malignancy of tumors contained
 in mammograms using a modern supervised Machine Learning method.
@@ -60,12 +59,11 @@ different configurations with the state-of-the-art, and emphasize how our
 multi-task and multi-view approaches improve on the baseline method.
 
 Last, we conclude by giving an outlook and suggest possible improvements.
-
 \section{The Chinese Mammography Database (CMMD)}
-\label{sec:orgd817dc7}
+\label{sec:org19e3e7b}
 
 \subsection{\label{screening}Screening}
-\label{sec:orgd514048}
+\label{sec:org24c282c}
 
 We use the publicly available Chinese Mammography Database (CMMD) \autocite{cai23},
 which originally contains \(\approx 1871\) patients screened for breast cancer.
@@ -79,9 +77,8 @@ prior to mammography.
 \end{itemize}
 
 This reduces the number of patients to \(1775\).
-
 \subsection{Annotations}
-\label{sec:orgccf0164}
+\label{sec:org908c369}
 
 Each \emph{breast} is analyzed by domain experts so as to assign the following
 target variables:
@@ -92,9 +89,8 @@ target variables:
 \item \(y_s \in \{\text{luminal-A}, \text{luminal-B},\text{HER2-positive},\text{triple-negative},\text{missing}\}\) a
 subtype information (possibly missing).
 \end{itemize}
-
 \subsection{\label{limitations}Limitations}
-\label{sec:org3308390}
+\label{sec:org146bd61}
 
 The CMMD dataset is challenging to use in a Machine Learning setting.
 Indeed, for a ML practitioner, coherent labels are crucial to fully exploit
@@ -125,9 +121,8 @@ basis of the imaging protocol.
 While there exists many elaborate techniques to deal with noisy labels,
 we choose to investigate on simple arithmetic operations as part of the
 training phase.
-
 \subsection{Exploration}
-\label{sec:org61e7ce1}
+\label{sec:org4c372a3}
 
 We show the distribution of abnormalities with respect to tumor type on Fig. \ref{fig:distributions},
 and show example images on Fig. \ref{fig:preview}.
@@ -143,9 +138,8 @@ and show example images on Fig. \ref{fig:preview}.
 \includegraphics[width=8cm]{./images/previews.png}
 \caption{\label{fig:preview}Example images. On each row, we show two views of the same breast. For each image, we give its tumor type and the set of abnormalities that it contains.}
 \end{figure}
-
 \subsection{\label{split}Curation and Splitting}
-\label{sec:org0c02e61}
+\label{sec:org1615093}
 
 As we endeavour to use the CMMD dataset to produce an ML solution, we
 perform a curation step and split all images in a train, validation, and testing splits.
@@ -182,36 +176,9 @@ must contain the same proportion of \(y_t\) and \(y_a\). Our splits contain \(60
  \(20\%\), and \(20\%\) of images for the train, validation, and testing set, respectively.
 \end{enumerate}
 
-\begin{verbatim}
-split  classification  abnormality  
-test   Benign          both              32
-                       calcification     26
-                       mass             164
-       Malignant       both             152
-                       calcification     80
-                       mass             294
-train  Benign          both              96
-                       calcification     76
-                       mass             496
-       Malignant       both             458
-                       calcification    236
-                       mass             886
-val    Benign          both              32
-                       calcification     26
-                       mass             164
-       Malignant       both             152
-                       calcification     80
-                       mass             294
-dtype: int64
-\end{verbatim}
-
 Our splits sum-up to:
-\begin{verbatim}
-num. of images: 3744
-\end{verbatim}
-
 \section{Methods}
-\label{sec:org3a721d0}
+\label{sec:orgdc9fb14}
 
 We aim to learn a predictor that determines whether a given mammography study
 contains a malignant or benign tumor.
@@ -220,9 +187,8 @@ At its core, our model extracts features using a Convolutional Neural Network,
 and follows with several parallel classification heads.
 
 We now develop our composite objectives and multi-view classification approaches.
-
 \subsection{\label{multiview}Learning with Multiple Views}
-\label{sec:org0cd89ff}
+\label{sec:org903aaf2}
 
 Following previous works in breast cancer screening,
 we implement and test several ways to handle the fact that
@@ -242,9 +208,8 @@ previous approach.
 \item \textbf{Feature concatenation}: Following \autocite{wu19} \autocite{chen22}, we concatenate feature
 vectors and proceed as in previous approaches.
 \end{enumerate}
-
 \subsection{Auxiliary Task}
-\label{sec:orgedb9561}
+\label{sec:org058e198}
 
 We investigate the relevance of multi-task learning (MTL) in breast cancer screening,
 While authors in \autocite{tardy22} demonstrate the benefits of MTL
@@ -276,9 +241,8 @@ The studies containing both type of abnormalities are excluded from this, due to
 
 In these branches, we implement similar aggregation strategies
 as the ones given in Sec. \ref{multiview}.
-
 \subsection{Architecture}
-\label{sec:orgd134c35}
+\label{sec:org1d02789}
 
 Our model is a Convolution Neural Network based on the ResNet34
 architecture \autocite{he15}, which encodes each image into a \(512\) -dimensional feature
@@ -292,9 +256,8 @@ We give an illustration of our model in Fig. \ref{fig:model}.
 \includegraphics[width=.9\linewidth]{./images/model.png}
 \caption{\label{fig:model}Our model takes as input a set of images that show several views of the same breast, and predicts (1) the type of tumor (main task), and (2) The form of abnormality (if present) for two types of abnormalities: mass and calcification (auxiliary task). We investigate on several fusion strategies (dashed columns): (a) Fuse features at bottleneck, or (b) fuse prediction outputs. We also set an auxiliary multi-label classification objective on abnormalities (bottom branch).}
 \end{figure}
-
 \subsection{Preprocessing, Training, and Validation}
-\label{sec:org5da2811}
+\label{sec:org89494d1}
 
 We convert the original images given as DICOM series into 8-bit images,
 and rescale these from \(2048 \times 2454\) to \(1024 \times 1024\) pixels. We found that this
@@ -334,9 +297,8 @@ Our gradients are computed using the Adam algorithm with a learning rate of
 
 For fair comparison with the state-of-the-art \autocite{walsh22}, we select the model so
 as to maximize the area under the ROC curve on the validation set.
-
 \section{Results}
-\label{sec:org6ba6acb}
+\label{sec:org3edf7e4}
 
 We compute performances on the benign/malignant classification task
 on the testing dataset for each of the following named configurations:
@@ -355,19 +317,6 @@ it is generally considered more appropriate for imbalanced datasets.
 Another experimental parameter, \texttt{with aux task}, takes value \texttt{True} when we jointly optimize for the
 auxiliary task that classifies abnormalities.
 
-\begin{verbatim}
- fusion mode  with aux. task  AUC(ROC)    AP
-  mean-feats            True     0.701 0.847
-  mean-feats           False     0.674 0.834
-      output            True     0.668 0.816
-      output           False     0.645 0.806
-   max-feats           False     0.611 0.774
-   max-feats            True     0.599 0.776
-concat-feats           False     0.526 0.713
-concat-feats            True     0.500 0.692
-\end{verbatim}
-
-
 Our best results are achieved using the \texttt{mean-feats} fusion mode and
 optimizing for the auxiliary task.
 Comparing the same configuration but with the auxiliary task disactivated,
@@ -380,9 +329,8 @@ Interestingly, the \texttt{concat-feats} mode performs very poorly.
 We hypothesize that this might be due to the fact
 that we do not take into account the order of the view-angle when
 concatenating.
-
 \section{Discussion, Conclusion and Future Works}
-\label{sec:orga52a732}
+\label{sec:orgaa07e83}
 
 We contributed a method to discriminate X-ray image sets of breasts into malignant and benign
 categories.

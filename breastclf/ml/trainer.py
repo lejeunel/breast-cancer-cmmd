@@ -21,7 +21,6 @@ class Trainer:
 
         self.train_epoch = start_epoch
         self.val_epoch = start_epoch
-
         self.loss_factors = loss_factors
 
     def train_one_epoch(self, dataloader, callbacks=[]):

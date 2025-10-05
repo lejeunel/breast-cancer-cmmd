@@ -1,10 +1,6 @@
 import typer
-from typing_extensions import Annotated
-from pathlib import Path
-from typing import Optional
 
-from breastclf import cmmd
-from breastclf import ml
+from breastclf import cmmd, ml
 
 app = typer.Typer()
 app.add_typer(

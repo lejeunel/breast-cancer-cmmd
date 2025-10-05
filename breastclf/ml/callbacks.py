@@ -1,11 +1,10 @@
 from pathlib import Path
 
-from breastclf.ml.shared import Batch
-from breastclf.ml.metrics import BinaryPrecisionAtFixedRecall
-import torch
-from torcheval import metrics
-
 import pandas as pd
+import torch
+from breastclf.ml.metrics import BinaryPrecisionAtFixedRecall
+from breastclf.ml.shared import Batch
+from torcheval import metrics
 
 
 class Callback:
