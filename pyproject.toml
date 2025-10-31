@@ -23,7 +23,13 @@ dependencies = [
 ]
 
 [tool.basedpyright]
-# Use the .venv folder for environment resolution
+defineConstant = { DEBUG = true }
+
+reportMissingImports = "error"
+reportMissingTypeStubs = false
+
+pythonVersion = "3.12"
+pythonPlatform = "Linux"
+typeCheckingMode = "basic"
 venvPath = "."
 venv = ".venv"
-exlude = [ ".venv" ]
